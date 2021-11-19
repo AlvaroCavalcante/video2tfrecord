@@ -163,7 +163,11 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
   filenames_split = list(get_chunks(filenames, n_videos_in_record))
 
+  data = None
+
   for i, batch in enumerate(filenames_split):
+    if data is not None:
+      data = None
     data = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                   n_frames_per_video=n_frames_per_video,
                                   n_channels=n_channels,
@@ -212,13 +216,13 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
                               name + str(current_batch_number) + '_of_' + str(
                                 total_batch_number) + '.tfrecords')
       print('Writing', filename)
-      writer = tf.python_io.TFRecordWriter(filename)
+      writer = tf.io.TFRecordWriter(filename)
 
     for image_count in range(num_images):
       path = 'blob' + '/' + str(image_count)
       image = data[video_count, image_count, :, :, :]
       image = image.astype(color_depth)
-      image_raw = image.tostring()
+      image_raw = tf.image.encode_jpeg(image).numpy()
 
       feature[path] = _bytes_feature(image_raw)
       feature['height'] = _int64_feature(height)
@@ -263,12 +267,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
   # if not all frames are to be used, we have to skip some -> set step size accordingly
   if n_frames_per_video == 'all':
     take_all_frames = True
-    video = np.zeros((frame_count, height, width, n_channels), dtype=np.uint32)
+    video = np.zeros((frame_count, height, width, n_channels), dtype=np.uint8)
     steps = frame_count
     n_frames = frame_count
   else:
     video = np.zeros((n_frames_per_video, height, width, n_channels),
-                     dtype=np.uint32)
+                     dtype=np.uint8)
     steps = int(math.floor(frame_count / n_frames_per_video))
     n_frames = n_frames_per_video
 
@@ -282,9 +286,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
   prev_frame_none = False
   restart = True
   image_prev = None
-
   while restart:
     for f in range(frame_count):
+      if frames_counter <= 7: # frame skip
+        get_next_frame(cap)
+        frames_counter += 1
+        continue
       if math.floor(f % steps) == 0 or take_all_frames:
         frame = get_next_frame(cap)
         # unfortunately opencv uses bgr color format as default
@@ -336,6 +343,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
   print(str(i + 1) + " of " + str(
     number_of_videos) + " videos within batch processed: ", file_path)
 
+  video = video[8:,:,:,:]
   v = video.copy()
   cap.release()
   return v
@@ -390,3 +398,8 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
 
   return np.array(data)
 
+if __name__ == '__main__':
+  convert_videos_to_tfrecord(
+    '/home/alvaro/Downloads/AUTSL/train/train', 'example/output', 
+    n_videos_in_record=120, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
+    width=800, height=600)
