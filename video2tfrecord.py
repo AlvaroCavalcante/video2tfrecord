@@ -12,6 +12,7 @@ from tensorflow.python.platform import flags
 from tensorflow.python.platform import app
 import cv2 as cv2
 import numpy as np
+import pandas as pd
 import math
 import os
 import tensorflow as tf
@@ -104,12 +105,20 @@ def compute_dense_optical_flow(prev_image, current_image):
   hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
   return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
+def get_data_label(batch_files, class_labels):
+  labels = []
+  for file in batch_files:
+    file = file.split('/')[-1].split('.')[0]
+    file = '_'.join(file.split('_')[0:2])
+    labels.append(class_labels.loc[class_labels['video_name'] == file, ['label']].values[0][0])
+
+  return labels
 
 def convert_videos_to_tfrecord(source_path, destination_path,
                                n_videos_in_record=10, n_frames_per_video='all',
                                file_suffix="*.mp4", dense_optical_flow=True,
                                width=1280, height=720,
-                               color_depth="uint8", video_filenames=None):
+                               color_depth="uint8", video_filenames=None, label_path=None):
   """Starts the process of converting video files to tfrecord files. If
   dense_optical_flow is set to True, the number of video channels in the
   tfrecords will automatically 4, i.e. the pipeline assumes 3 (RGB) channels
@@ -162,10 +171,13 @@ def convert_videos_to_tfrecord(source_path, destination_path,
   print('Total videos found: ' + str(len(filenames)))
 
   filenames_split = list(get_chunks(filenames, n_videos_in_record))
+  class_labels = pd.read_csv(label_path)
 
   data = None
 
   for i, batch in enumerate(filenames_split):
+    labels = get_data_label(batch, class_labels)
+
     if data is not None:
       data = None
     data = convert_video_to_numpy(filenames=batch, width=width, height=height,
@@ -180,12 +192,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     assert data.size != 0, 'something went wrong during video to numpy conversion'
     save_numpy_to_tfrecords(data, destination_path, 'batch_',
                             n_videos_in_record, i + 1, total_batch_number,
-                            color_depth=color_depth)
+                            color_depth=color_depth, labels=labels)
 
 
 def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
-                            color_depth):
+                            color_depth, labels):
   """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
 
   Args:
@@ -228,6 +240,7 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
       feature['height'] = _int64_feature(height)
       feature['width'] = _int64_feature(width)
       feature['depth'] = _int64_feature(num_channels)
+      feature['label'] = _int64_feature(labels[video_count])
 
     example = tf.train.Example(features=tf.train.Features(feature=feature))
     writer.write(example.SerializeToString())
@@ -402,4 +415,4 @@ if __name__ == '__main__':
   convert_videos_to_tfrecord(
     '/home/alvaro/Downloads/AUTSL/train/train', 'example/output', 
     n_videos_in_record=120, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
-    width=800, height=600)
+    width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train/train_labels.csv')

@@ -11,7 +11,8 @@ def read_tfrecord(example_proto):
         feature_dict = {path: tf.io.FixedLenFeature([], tf.string),
         'height': tf.io.FixedLenFeature([], tf.int64),
         'width': tf.io.FixedLenFeature([], tf.int64),
-        'depth': tf.io.FixedLenFeature([], tf.int64)}
+        'depth': tf.io.FixedLenFeature([], tf.int64),
+        'label': tf.io.FixedLenFeature([], tf.int64)}
 
         features = tf.io.parse_single_example(example_proto, features=feature_dict)
 
@@ -47,12 +48,12 @@ def load_data_tfrecord(tfrecord_path):
   dataset = prepare_for_training(dataset)
   return dataset
 
-tf_record_path = "/home/alvaro/Área de Trabalho/video2tfrecord/example/output/batch_46_of_235.tfrecords"
+tf_record_path = "/home/alvaro/Documentos/video2tfrecord/example/output/batch_1_of_235.tfrecords"
 WIDTH = 800
 HEIGHT = 600
 
-row = 6; col = 4
-row = min(row,15//col)
+row = 4; col = 4
+#row = min(row,15//col)
 
 all_elements = load_data_tfrecord(tf_record_path).unbatch()
 augmented_element = all_elements.repeat().batch(1)
