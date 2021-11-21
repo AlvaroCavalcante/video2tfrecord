@@ -16,9 +16,12 @@ def read_tfrecord(example_proto):
 
         features = tf.io.parse_single_example(example_proto, features=feature_dict)
 
+        width = tf.cast(features['width'], tf.int32)
+        height = tf.cast(features['height'], tf.int32)
+
         image = tf.image.decode_jpeg(features[path], channels=3)
-        image = tf.reshape(image, tf.stack([HEIGHT, WIDTH, 3]))
-        image = tf.reshape(image, [1, HEIGHT, WIDTH, 3])
+        image = tf.reshape(image, tf.stack([height, width, 3]))
+        image = tf.reshape(image, [1, height, width, 3])
         image_seq.append(image)
 
         label = tf.cast(features['label'], tf.int32)
@@ -51,8 +54,6 @@ def load_data_tfrecord(tfrecord_path):
   return dataset
 
 tf_record_path = "/home/alvaro/Documentos/video2tfrecord/example/output/batch_1_of_2815.tfrecords"
-WIDTH = 800
-HEIGHT = 600
 
 row = 4; col = 4
 #row = min(row,15//col)
