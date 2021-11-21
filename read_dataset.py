@@ -21,9 +21,11 @@ def read_tfrecord(example_proto):
         image = tf.reshape(image, [1, HEIGHT, WIDTH, 3])
         image_seq.append(image)
 
+        label = tf.cast(features['label'], tf.int32)
+
     image_seq = tf.concat(image_seq, 0)
 
-    return image_seq
+    return image_seq, label
 
 def load_dataset(tf_record_path):
     raw_dataset = tf.data.TFRecordDataset(tf_record_path)
@@ -48,7 +50,7 @@ def load_data_tfrecord(tfrecord_path):
   dataset = prepare_for_training(dataset)
   return dataset
 
-tf_record_path = "/home/alvaro/Documentos/video2tfrecord/example/output/batch_1_of_235.tfrecords"
+tf_record_path = "/home/alvaro/Documentos/video2tfrecord/example/output/batch_1_of_2815.tfrecords"
 WIDTH = 800
 HEIGHT = 600
 
@@ -58,7 +60,7 @@ row = 4; col = 4
 all_elements = load_data_tfrecord(tf_record_path).unbatch()
 augmented_element = all_elements.repeat().batch(1)
 
-for seq in augmented_element:
+for (seq, label) in augmented_element:
     plt.figure(figsize=(15,int(15*row/col)))
     for j in range(row*col):
         plt.subplot(row,col,j+1)
