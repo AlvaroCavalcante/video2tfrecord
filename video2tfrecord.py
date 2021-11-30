@@ -180,10 +180,10 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
     if data is not None:
       data = None
-    data = convert_video_to_numpy(filenames=batch, width=width, height=height,
+    data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                   n_frames_per_video=n_frames_per_video,
                                   n_channels=n_channels,
-                                  dense_optical_flow=dense_optical_flow)
+                                  dense_optical_flow=dense_optical_flow, labels=labels)
     if n_videos_in_record > len(filenames):
       total_batch_number = 1
     else:
@@ -367,7 +367,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
 
 
 def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
-                           n_channels, dense_optical_flow=False):
+                           n_channels, dense_optical_flow=False, labels=[]):
   """Generates an ndarray from multiple video files given by filenames.
   Implementation chooses frame step size automatically for a equal separation distribution of the video images.
 
@@ -399,7 +399,7 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
     num_real_image_channel = n_channels
 
   data = []
-
+  final_labels = []
   for i, file in enumerate(filenames):
     try:
       v = video_file_to_ndarray(i=i, file_path=file,
@@ -410,13 +410,14 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
                                 dense_optical_flow=dense_optical_flow,
                                 number_of_videos=number_of_videos)
       data.append(v)
+      final_labels.append(labels[i])
     except Exception as e:
       print(e)
 
-  return np.array(data)
+  return np.array(data), final_labels
 
 if __name__ == '__main__':
   convert_videos_to_tfrecord(
-    '/home/alvaro/Downloads/AUTSL/train/train', 'example/validation_set', 
-    n_videos_in_record=50, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
+    '/home/alvaro/Downloads/AUTSL/train/train', 'example/train', 
+    n_videos_in_record=120, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
     width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train/train_labels.csv')
