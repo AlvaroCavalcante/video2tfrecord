@@ -190,12 +190,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       total_batch_number = int(math.ceil(len(filenames) / n_videos_in_record))
     print('Batch ' + str(i + 1) + '/' + str(total_batch_number) + " completed")
     assert data.size != 0, 'something went wrong during video to numpy conversion'
-    save_numpy_to_tfrecords(data, destination_path, 'batch_',
+    save_numpy_to_tfrecords(data, batch, destination_path, 'batch_',
                             n_videos_in_record, i + 1, total_batch_number,
                             color_depth=color_depth, labels=labels)
 
 
-def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
+def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
                             color_depth, labels):
   """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
@@ -236,7 +236,11 @@ def save_numpy_to_tfrecords(data, destination_path, name, fragmentSize,
       image = image.astype(color_depth)
       image_raw = tf.image.encode_jpeg(image).numpy()
 
+      file = filenames[video_count].split('/')[-1].split('.')[0]
+      file = '_'.join(file.split('_')[0:2])
+
       feature[path] = _bytes_feature(image_raw)
+      feature['video_name'] = _bytes_feature(str.encode(file))
       feature['height'] = _int64_feature(height)
       feature['width'] = _int64_feature(width)
       feature['depth'] = _int64_feature(num_channels)
@@ -413,6 +417,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
 
 if __name__ == '__main__':
   convert_videos_to_tfrecord(
-    '/home/alvaro/Downloads/AUTSL/train/train', 'example/output', 
-    n_videos_in_record=120, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
+    '/home/alvaro/Downloads/AUTSL/train/train', 'example/validation_set', 
+    n_videos_in_record=50, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
     width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train/train_labels.csv')
