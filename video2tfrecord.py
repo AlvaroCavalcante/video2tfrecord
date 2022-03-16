@@ -153,6 +153,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
   """
   assert isinstance(n_frames_per_video, (int, str))
 
+  jpeg_encode = True if not dense_optical_flow else False
   if type(n_frames_per_video) is str:
     assert n_frames_per_video == "all"
 
@@ -192,22 +193,23 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     assert data.size != 0, 'something went wrong during video to numpy conversion'
     save_numpy_to_tfrecords(data, batch, destination_path, 'batch_',
                             n_videos_in_record, i + 1, total_batch_number,
-                            color_depth=color_depth, labels=labels)
+                            color_depth=color_depth, labels=labels, jpeg_encode=jpeg_encode)
 
 
 def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
-                            color_depth, labels):
+                            color_depth, labels, jpeg_encode=True):
   """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
 
   Args:
-    data: ndarray(uint32) of shape (v,i,h,w,c) with v=number of videos,
+    data: ndarray(uint8) of shape (v,i,h,w,c) with v=number of videos,
     i=number of images, c=number of image channels, h=image height, w=image
     width
     name: filename; data samples type (train|valid|test)
     fragmentSize: specifies how many videos are stored in one tfrecords file
     current_batch_number: indicates the current batch index (function call within loop)
     total_batch_number: indicates the total number of batches
+    jpeg_encode: specify how to encode the video frames
   """
 
   num_videos = data.shape[0]
@@ -228,13 +230,20 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
                               name + str(current_batch_number) + '_of_' + str(
                                 total_batch_number) + '.tfrecords')
       print('Writing', filename)
-      writer = tf.io.TFRecordWriter(filename)
+      if tf.__version__.split('.')[0] == '2':
+        writer = tf.io.TFRecordWriter(filename)
+      else:
+        writer = tf.python_io.TFRecordWriter(filename)
 
     for image_count in range(num_images):
       path = 'blob' + '/' + str(image_count)
       image = data[video_count, image_count, :, :, :]
       image = image.astype(color_depth)
-      image_raw = tf.image.encode_jpeg(image).numpy()
+
+      if jpeg_encode:
+        image_raw = tf.image.encode_jpeg(image).numpy()
+      else:
+        image_raw = image.tostring()
 
       file = filenames[video_count].split('/')[-1].split('.')[0]
       file = '_'.join(file.split('_')[0:2])
@@ -382,9 +391,9 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
     type: processing type for video data
 
   Returns:
-    if no optical flow is used: ndarray(uint32) of shape (v,i,h,w,c) with
+    if no optical flow is used: ndarray(uint8) of shape (v,i,h,w,c) with
     v=number of videos, i=number of images, (h,w)=height and width of image,
-    c=channel, if optical flow is used: ndarray(uint32) of (v,i,h,w,
+    c=channel, if optical flow is used: ndarray(uint8) of (v,i,h,w,
     c+1)
   """
 
