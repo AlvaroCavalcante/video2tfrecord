@@ -31,9 +31,6 @@ flags.DEFINE_string('file_suffix', "*.mp4",
 flags.DEFINE_string('source', './example/input', 'Directory with video files')
 flags.DEFINE_string('destination', './example/output',
                     'Directory for storing tf records')
-flags.DEFINE_boolean('optical_flow', True,
-                     'Indicates whether optical flow shall be computed and added as fourth '
-                     'channel.')
 flags.DEFINE_integer('width_video', 1280, 'the width of the videos in pixels')
 flags.DEFINE_integer('height_video', 720, 'the height of the videos in pixels')
 flags.DEFINE_integer('n_frames_per_video', 5,
@@ -85,26 +82,6 @@ def get_next_frame(cap):
 
   return np.asarray(frame)
 
-
-def compute_dense_optical_flow(prev_image, current_image):
-  old_shape = current_image.shape
-  prev_image_gray = cv2.cvtColor(prev_image, cv2.COLOR_BGR2GRAY)
-  current_image_gray = cv2.cvtColor(current_image, cv2.COLOR_BGR2GRAY)
-  assert current_image.shape == old_shape
-  hsv = np.zeros_like(prev_image)
-  hsv[..., 1] = 255
-  flow = None
-  flow = cv2.calcOpticalFlowFarneback(prev=prev_image_gray,
-                                      next=current_image_gray, flow=flow,
-                                      pyr_scale=0.8, levels=15, winsize=5,
-                                      iterations=10, poly_n=5, poly_sigma=0,
-                                      flags=10)
-
-  mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-  hsv[..., 0] = ang * 180 / np.pi / 2
-  hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-  return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
 def get_data_label(batch_files, class_labels):
   """Gets the video labels based on the name of the video. Considering
   that we have a dataframe (from csv) that contains the video_name and label
@@ -124,14 +101,10 @@ def get_data_label(batch_files, class_labels):
 
 def convert_videos_to_tfrecord(source_path, destination_path,
                                n_videos_in_record=10, n_frames_per_video='all',
-                               file_suffix="*.mp4", dense_optical_flow=True,
+                               file_suffix="*.mp4", 
                                width=1280, height=720,
                                color_depth="uint8", video_filenames=None, label_path=None):
-  """Starts the process of converting video files to tfrecord files. If
-  dense_optical_flow is set to True, the number of video channels in the
-  tfrecords will automatically 4, i.e. the pipeline assumes 3 (RGB) channels
-  in the videos. This pipeline does not (yet) support a different number of
-  channels.
+  """Starts the process of converting video files to tfrecord files.
 
   Args:
     source_path: directory where video videos are stored
@@ -145,8 +118,6 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       spaced over the entire video playtime.
 
     file_suffix: defines the video file type, e.g. *.mp4
-      dense_optical_flow: boolean flag that controls if optical flow should be
-      used and added to tfrecords
 
     width: the width of the videos in pixels
 
@@ -160,15 +131,11 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       directly be provided. In this case, the source will be ignored.
   """
   assert isinstance(n_frames_per_video, (int, str))
-
-  jpeg_encode = True if not dense_optical_flow else False
   if type(n_frames_per_video) is str:
     assert n_frames_per_video == "all"
 
-  if dense_optical_flow:
-    n_channels = 4
-  else:
-    n_channels = 3
+  jpeg_encode = True
+  n_channels = 3
 
   if video_filenames is not None:
     filenames = video_filenames
@@ -191,8 +158,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
       data = None
     data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                   n_frames_per_video=n_frames_per_video,
-                                  n_channels=n_channels,
-                                  dense_optical_flow=dense_optical_flow, labels=labels)
+                                  n_channels=n_channels, labels=labels)
     if n_videos_in_record > len(filenames):
       total_batch_number = 1
     else:
@@ -293,8 +259,8 @@ def repeat_image_retrieval(cap, file_path, video, take_all_frames, steps, frame,
 
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
-                          n_channels, num_real_image_channel,
-                          dense_optical_flow, number_of_videos):
+                          n_channels, num_real_image_channel, number_of_videos):
+
   cap, frame_count = get_video_capture_and_frame_count(file_path)
 
   take_all_frames = False
@@ -353,23 +319,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
             resizedImage = cv2.resize(frame[:, :, k], (width, height))
             image[:, :, k] = resizedImage
 
-          if dense_optical_flow:
-            # optical flow requires at least two images, make the OF image appended to the first image just black
-            if image_prev is not None:
-              frame_flow = compute_dense_optical_flow(image_prev, image)
-              frame_flow = cv2.cvtColor(frame_flow, cv2.COLOR_BGR2GRAY)
-            else:
-              frame_flow = np.zeros((height, width))
-            image_prev = image.copy()
-
-          # assemble the video from the single images
-          if dense_optical_flow:
-            image_with_flow = image.copy()
-            image_with_flow = np.concatenate(
-              (image_with_flow, np.expand_dims(frame_flow, axis=2)), axis=2)
-            video[frames_counter, :, :, :] = image_with_flow
-          else:
-            video[frames_counter, :, :, :] = image
+          video[frames_counter, :, :, :] = image
           frames_counter += 1
       else:
         get_next_frame(cap)
@@ -384,7 +334,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
 
 
 def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
-                           n_channels, dense_optical_flow=False, labels=[]):
+                           n_channels, labels=[]):
   """Generates an ndarray from multiple video files given by filenames.
   Implementation chooses frame step size automatically for a equal separation distribution of the video images.
 
@@ -406,14 +356,7 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
   """
 
   number_of_videos = len(filenames)
-
-  if dense_optical_flow:
-    # need an additional channel for the optical flow with one exception:
-    n_channels = 4
-    num_real_image_channel = 3
-  else:
-    # if no optical flow, make everything normal:
-    num_real_image_channel = n_channels
+  num_real_image_channel = n_channels
 
   data = []
   final_labels = []
@@ -424,7 +367,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
                                 height=height, width=width,
                                 n_channels=n_channels,
                                 num_real_image_channel=num_real_image_channel,
-                                dense_optical_flow=dense_optical_flow,
                                 number_of_videos=number_of_videos)
       data.append(v)
       final_labels.append(labels[i])
@@ -436,5 +378,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
 if __name__ == '__main__':
   convert_videos_to_tfrecord(
     '/home/alvaro/Downloads/AUTSL/train', 'example/train', 
-    n_videos_in_record=10, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
+    n_videos_in_record=10, n_frames_per_video=24, file_suffix="*.mp4",
     width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train_labels.csv')
