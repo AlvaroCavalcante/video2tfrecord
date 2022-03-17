@@ -80,7 +80,11 @@ def get_next_frame(cap):
     if not ret:
         return None
 
-    return np.asarray(frame)
+    frame = np.asarray(frame)
+    if frame is not None:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    return frame
 
 
 def get_data_label(batch_files, class_labels):
@@ -137,8 +141,6 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     if type(n_frames_per_video) is str:
         assert n_frames_per_video == "all"
 
-    n_channels = 3
-
     if video_filenames is not None:
         filenames = video_filenames
     else:
@@ -159,8 +161,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         if data is not None:
             data = None
         data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
-                                              n_frames_per_video=n_frames_per_video,
-                                              n_channels=n_channels, labels=labels)
+                                              n_frames_per_video=n_frames_per_video, labels=labels)
         if n_videos_in_record > len(filenames):
             total_batch_number = 1
         else:
@@ -217,7 +218,7 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
             image = data[video_count, image_count, :, :, :]
             image = image.astype(color_depth)
 
-            image_raw = tf.image.encode_jpeg(image).numpy() # image.tostring()
+            image_raw = tf.image.encode_jpeg(image).numpy()  # image.tostring()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
@@ -258,35 +259,26 @@ def repeat_image_retrieval(cap, file_path, video, take_all_frames, steps, frame,
     return stop, cap, video, steps, prev_frame_none, frames_counter
 
 
-def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
-                          n_channels, num_real_image_channel, number_of_videos):
-
+def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
     cap, frame_count = get_video_capture_and_frame_count(file_path)
 
-    take_all_frames = False
-    # if not all frames are to be used, we have to skip some -> set step size accordingly
-    if n_frames_per_video == 'all':
-        take_all_frames = True
-        video = np.zeros((frame_count, height, width,
-                         n_channels), dtype=np.uint8)
-        steps = frame_count
-        n_frames = frame_count
-    else:
-        video = np.zeros((n_frames_per_video, height, width, n_channels),
-                         dtype=np.uint8)
-        steps = int(math.floor(frame_count / n_frames_per_video))
-        n_frames = n_frames_per_video
+    take_all_frames = True if n_frames_per_video == 'all' else False
+
+    n_frames = frame_count if take_all_frames else n_frames_per_video
+    video = np.zeros((n_frames, height, width, n_channels), dtype=np.uint8)
+    steps = frame_count if take_all_frames else int(
+        math.floor(frame_count / n_frames_per_video))
 
     assert not (frame_count < 1 or steps < 1), str(
         file_path) + " does not have enough frames. Skipping video."
 
     # variables needed
-    image = np.zeros((height, width, num_real_image_channel),
+    image = np.zeros((height, width, n_channels),
                      dtype=FLAGS.image_color_depth)
     frames_counter = 0
     prev_frame_none = False
     restart = True
-    image_prev = None
+
     while restart:
         for f in range(frame_count):
             if frames_counter <= 7:  # skipping the first frames of the sign language video
@@ -295,9 +287,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
                 continue
             if math.floor(f % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
-                # unfortunately opencv uses bgr color format as default
-                if frame is not None:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
                     stop, _, _1, _2, _3, _4 = repeat_image_retrieval(
@@ -316,10 +306,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
                         break
 
                     # iterate over channels
-                    for k in range(num_real_image_channel):
+                    for n_channel in range(n_channels):
                         resizedImage = cv2.resize(
-                            frame[:, :, k], (width, height))
-                        image[:, :, k] = resizedImage
+                            frame[:, :, n_channel], (width, height))
+                        image[:, :, n_channel] = resizedImage
 
                     video[frames_counter, :, :, :] = image
                     frames_counter += 1
@@ -330,13 +320,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
         number_of_videos) + " videos within batch processed: ", file_path)
 
     video = video[8:, :, :, :]
-    v = video.copy()
+    video_copy = video.copy()
     cap.release()
-    return v
+    return video_copy
 
 
-def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
-                           n_channels, labels=[]):
+def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
     """Generates an ndarray from multiple video files given by filenames.
     Implementation chooses frame step size automatically for a equal separation distribution of the video images.
 
@@ -358,19 +347,16 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
     """
 
     number_of_videos = len(filenames)
-    num_real_image_channel = n_channels
 
     data = []
     final_labels = []
     for i, file in enumerate(filenames):
         try:
-            v = video_file_to_ndarray(i=i, file_path=file,
-                                      n_frames_per_video=n_frames_per_video,
-                                      height=height, width=width,
-                                      n_channels=n_channels,
-                                      num_real_image_channel=num_real_image_channel,
-                                      number_of_videos=number_of_videos)
-            data.append(v)
+            video = video_file_to_ndarray(i=i, file_path=file,
+                                          n_frames_per_video=n_frames_per_video,
+                                          height=height, width=width,
+                                          number_of_videos=number_of_videos)
+            data.append(video)
             final_labels.append(labels[i])
         except Exception as e:
             print(e)
