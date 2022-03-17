@@ -6,6 +6,7 @@
  an equal separation distribution of the video images. Implementation supports Optical Flow
  (currently OpenCV's calcOpticalFlowFarneback) as an additional 4th channel.
 """
+import tensorflow as tf
 
 from tensorflow.python.platform import gfile
 from tensorflow.python.platform import flags
@@ -15,7 +16,6 @@ import numpy as np
 import pandas as pd
 import math
 import os
-import tensorflow as tf
 import time
 
 FLAGS = flags.FLAGS
@@ -106,6 +106,14 @@ def compute_dense_optical_flow(prev_image, current_image):
   return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 def get_data_label(batch_files, class_labels):
+  """Gets the video labels based on the name of the video. Considering
+  that we have a dataframe (from csv) that contains the video_name and label
+  columns, we can get the label based on a split of the video name.
+
+  Args:
+    batch_files: list of file paths in the batch.
+    class_labels: dataframe containing the name of the videos and the respective label.
+  """
   labels = []
   for file in batch_files:
     file = file.split('/')[-1].split('.')[0]
@@ -172,7 +180,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
   print('Total videos found: ' + str(len(filenames)))
 
   filenames_split = list(get_chunks(filenames, n_videos_in_record))
-  class_labels = pd.read_csv(label_path)
+  class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
   data = None
 
@@ -314,7 +322,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width,
   image_prev = None
   while restart:
     for f in range(frame_count):
-      if frames_counter <= 7: # frame skip
+      if frames_counter <= 7: # skipping the first frames of the sign language video
         get_next_frame(cap)
         frames_counter += 1
         continue
@@ -427,6 +435,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height,
 
 if __name__ == '__main__':
   convert_videos_to_tfrecord(
-    '/home/alvaro/Downloads/AUTSL/train/train', 'example/train', 
-    n_videos_in_record=120, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
-    width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train/train_labels.csv')
+    '/home/alvaro/Downloads/AUTSL/train', 'example/train', 
+    n_videos_in_record=10, n_frames_per_video=24, file_suffix="*.mp4", dense_optical_flow=False,
+    width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train_labels.csv')
