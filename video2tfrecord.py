@@ -137,7 +137,6 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     if type(n_frames_per_video) is str:
         assert n_frames_per_video == "all"
 
-    jpeg_encode = True
     n_channels = 3
 
     if video_filenames is not None:
@@ -172,12 +171,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         assert data.size != 0, 'something went wrong during video to numpy conversion'
         save_numpy_to_tfrecords(data, batch, destination_path, 'batch_',
                                 n_videos_in_record, i + 1, total_batch_number,
-                                color_depth=color_depth, labels=labels, jpeg_encode=jpeg_encode)
+                                color_depth=color_depth, labels=labels)
 
 
 def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
-                            color_depth, labels, jpeg_encode=True):
+                            color_depth, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
 
     Args:
@@ -188,7 +187,6 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
       fragmentSize: specifies how many videos are stored in one tfrecords file
       current_batch_number: indicates the current batch index (function call within loop)
       total_batch_number: indicates the total number of batches
-      jpeg_encode: specify how to encode the video frames
     """
 
     num_videos = data.shape[0]
@@ -219,10 +217,7 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
             image = data[video_count, image_count, :, :, :]
             image = image.astype(color_depth)
 
-            if jpeg_encode:
-                image_raw = tf.image.encode_jpeg(image).numpy()
-            else:
-                image_raw = image.tostring()
+            image_raw = tf.image.encode_jpeg(image).numpy() # image.tostring()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
