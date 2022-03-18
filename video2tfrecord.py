@@ -6,17 +6,21 @@
  an equal separation distribution of the video images. Implementation supports Optical Flow
  (currently OpenCV's calcOpticalFlowFarneback) as an additional 4th channel.
 """
+import os
+import time
+import math
+
+import cv2 as cv2
+import numpy as np
+import pandas as pd
+
 import tensorflow as tf
 
 from tensorflow.python.platform import gfile
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import app
-import cv2 as cv2
-import numpy as np
-import pandas as pd
-import math
-import os
-import time
+
+import hand_face_detection
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('n_videos_in_record', 10,
@@ -261,6 +265,8 @@ def repeat_image_retrieval(cap, file_path, video, take_all_frames, steps, frame,
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
     cap, frame_count = get_video_capture_and_frame_count(file_path)
+    detect_fn = tf.saved_model.load(
+        '/home/alvaro/Downloads/centernet_resnet50_v2-20220318T025013Z-001/centernet_resnet50_v2/saved_model')
 
     take_all_frames = True if n_frames_per_video == 'all' else False
 
@@ -288,6 +294,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             if math.floor(f % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
 
+                img, distances, triangle_features = hand_face_detection.detect_visual_cues_from_image(
+                    image=frame,
+                    label_map_path='utils/label_map.pbtxt',
+                    detect_fn=detect_fn,
+                    height=height,
+                    width=width,
+                    single_person=True
+                )
+
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
                     stop, _, _1, _2, _3, _4 = repeat_image_retrieval(
@@ -299,7 +314,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     else:
                         video[frames_counter, :, :, :].fill(0)
                         frames_counter += 1
-
                 else:
                     if frames_counter >= n_frames:
                         restart = False

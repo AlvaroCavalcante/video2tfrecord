@@ -6,6 +6,7 @@ from utils import label_map_util
 import argparse
 from itertools import combinations
 import math
+from matplotlib import pyplot as plt
 
 physical_devices = tf.config.list_physical_devices('GPU')
 try:
@@ -69,7 +70,7 @@ def compute_features_and_draw_lines(bouding_boxes, img):
 
     return img, euclidian_distances, triangle_features
 
-def draw_boxes_on_img(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, single_person):
+def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, single_person):
     category_index = label_map_util.create_category_index_from_labelmap(label_map_path,
                                                             use_display_name=True)
 
@@ -101,7 +102,7 @@ def draw_boxes_on_img(image_np_with_detections, label_map_path, scores, classes,
 
     return image_np_with_detections, output_bboxes
 
-def infer_images(image, output_img, label_map_path, detect_fn, heigth, width, single_person):
+def infer_images(image, label_map_path, detect_fn, heigth, width, single_person):
     image_np = np.array(image)
     input_tensor = tf.convert_to_tensor(image_np)
     input_tensor = input_tensor[tf.newaxis, ...]
@@ -115,8 +116,8 @@ def infer_images(image, output_img, label_map_path, detect_fn, heigth, width, si
 
     detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
 
-    image_np_with_detections, bouding_boxes = draw_boxes_on_img(
-        output_img, 
+    image_np_with_detections, bouding_boxes = filter_boxes_and_draw(
+        image.copy(), 
         label_map_path, 
         detections['detection_scores'], 
         detections['detection_classes'], 
@@ -125,60 +126,11 @@ def infer_images(image, output_img, label_map_path, detect_fn, heigth, width, si
 
     return image_np_with_detections, bouding_boxes
 
-def hand_and_face_detection(args):
-    detect_fn = tf.saved_model.load(args.saved_model_path)
+def detect_visual_cues_from_image(**kwargs):
+    output_img, bouding_boxes = infer_images(kwargs.get('image'), kwargs.get('label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'), kwargs.get('single_person'))
+    output_img, distances, triangle_features = compute_features_and_draw_lines(bouding_boxes, output_img)
 
-    source = args.source_path if args.source_path else 0
-    cap = cv2.VideoCapture(source)
+    plt.imshow(cv2.cvtColor(output_img, cv2.COLOR_BGR2RGB))
+    plt.show()
 
-    count = 0
-    fps = str(0)
-    start_time = time.time()
-    fps_hist = []
-
-    while True:
-        got_frame, frame = cap.read()
-
-        if not got_frame:
-            break
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        output_img = frame.copy()
-        heigth, width = output_img.shape[0], output_img.shape[1]
-
-        frame = cv2.resize(frame, (320, 320)).astype('uint8')
-        output_img, bouding_boxes = infer_images(frame, output_img, args.label_map_path, detect_fn, heigth, width, args.single_person)
-
-        if args.compute_features:
-            output_img, distances, triangle_features = compute_features_and_draw_lines(bouding_boxes, output_img)
-
-        count += 1
-        if (time.time() - start_time) > 1:
-            fps = int(count / (time.time() - start_time))
-            print('detection FPS: {}'.format(str(fps)))
-            count = 0
-            start_time = time.time()
-            fps_hist.append(fps)
-
-        if not args.use_docker or not args.view_results:
-            cv2.imshow('Frame', cv2.cvtColor(output_img, cv2.COLOR_BGR2RGB))
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                break
-
-    print(fps_hist)
-    print('Mean FPS: ', str(sum(fps_hist) / len(fps_hist)))
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--saved_model_path', type=str, default='./utils/models/ssd_v2/saved_model')
-    parser.add_argument('--source_path', type=str)
-    parser.add_argument('--label_map_path', type=str, default='./utils/label_map.pbtxt')
-    parser.add_argument('--compute_features', type=bool, default=True)
-    parser.add_argument('--use_docker', type=bool, default=False)
-    parser.add_argument('--single_person', type=bool, default=True)
-    parser.add_argument('--view_results', type=bool, default=False)
-
-    args = parser.parse_args()
-
-    hand_and_face_detection(args)
+    return output_img, distances, triangle_features
