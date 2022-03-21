@@ -271,7 +271,13 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     take_all_frames = True if n_frames_per_video == 'all' else False
 
     n_frames = frame_count if take_all_frames else n_frames_per_video
+    starting_frames_to_skip = 8
+
     video = np.zeros((n_frames, height, width, n_channels), dtype=np.uint8)
+    faces = np.zeros((n_frames, 50, 50, 3), dtype=np.uint8)
+    hands_1 = np.zeros((n_frames, 50, 50, 3), dtype=np.uint8)
+    hands_2 = np.zeros((n_frames, 50, 50, 3), dtype=np.uint8)
+
     steps = frame_count if take_all_frames else int(
         math.floor(frame_count / n_frames_per_video))
 
@@ -286,15 +292,16 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     restart = True
 
     while restart:
-        for f in range(frame_count):
-            if frames_counter <= 7:  # skipping the first frames of the sign language video
+        for frame_number in range(frame_count):
+            if frames_counter < starting_frames_to_skip:  # skipping the first frames of the sign language video
                 get_next_frame(cap)
                 frames_counter += 1
                 continue
-            if math.floor(f % steps) == 0 or take_all_frames:
+            
+            if math.floor(frame_number % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
 
-                face_segment, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
+                face, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
                     image=frame,
                     label_map_path='utils/label_map.pbtxt',
                     detect_fn=detect_fn,
@@ -319,12 +326,16 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         break
 
                     # iterate over channels
-                    for n_channel in range(n_channels):
-                        resizedImage = cv2.resize(
+                    for n_channel in range(n_channels): # TODO: why to resize each channel individually?
+                        resized_image = cv2.resize(
                             frame[:, :, n_channel], (width, height))
-                        image[:, :, n_channel] = resizedImage
+                        image[:, :, n_channel] = resized_image
 
                     video[frames_counter, :, :, :] = image
+                    faces[frames_counter, :, :, :] = face
+                    hands_1[frames_counter, :, :, :] = hand_1
+                    hands_2[frames_counter, :, :, :] = hand_2
+
                     frames_counter += 1
             else:
                 get_next_frame(cap)
@@ -332,7 +343,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     print(str(i + 1) + " of " + str(
         number_of_videos) + " videos within batch processed: ", file_path)
 
-    video = video[8:, :, :, :]
+    video = video[starting_frames_to_skip:, :, :, :]
     video_copy = video.copy()
     cap.release()
     return video_copy
