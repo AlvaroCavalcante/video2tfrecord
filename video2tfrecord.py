@@ -10,7 +10,7 @@ import os
 import time
 import math
 
-import cv2 as cv2
+import cv2
 import numpy as np
 import pandas as pd
 
@@ -294,13 +294,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             if math.floor(f % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
 
-                img, distances, triangle_features = hand_face_detection.detect_visual_cues_from_image(
+                face_segment, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
                     image=frame,
                     label_map_path='utils/label_map.pbtxt',
                     detect_fn=detect_fn,
-                    height=height,
-                    width=width,
-                    single_person=True
+                    height=512,
+                    width=512
                 )
 
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
