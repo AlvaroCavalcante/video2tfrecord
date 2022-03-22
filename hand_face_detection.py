@@ -173,7 +173,7 @@ def infer_images(image, label_map_path, detect_fn, heigth, width):
     detections['detection_classes'] = detections['detection_classes'].astype(
         np.int64)
 
-    image_np_with_detections, bouimg, distances, triangle_featuresding_boxes = filter_boxes_and_draw(
+    image_np_with_detections, bouding_boxes = filter_boxes_and_draw(
         image.copy(),
         label_map_path,
         detections['detection_scores'],
@@ -186,8 +186,10 @@ def infer_images(image, label_map_path, detect_fn, heigth, width):
 
 def detect_visual_cues_from_image(**kwargs):
     input_image = kwargs.get('image')
+
     drawn_image, bouding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'))
+
     drawn_image, triangle_features = compute_features_and_draw_lines(
         bouding_boxes, drawn_image)
 
