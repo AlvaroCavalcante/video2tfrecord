@@ -273,18 +273,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             if math.floor(frame_number % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
 
-                face, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
-                    image=frame,
-                    label_map_path='utils/label_map.pbtxt',
-                    detect_fn=MODEL,
-                    height=512,
-                    width=512
-                )
-
-                if not triangle_features:
-                    frames_counter += 1
-                    continue
-
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
                     stop, _, _1, _2, _3, _4 = repeat_image_retrieval(
@@ -300,6 +288,18 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     if frames_counter >= n_frames:
                         restart = False
                         break
+
+                    face, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
+                        image=frame,
+                        label_map_path='utils/label_map.pbtxt',
+                        detect_fn=MODEL,
+                        height=512,
+                        width=512
+                    )
+
+                    if not triangle_features:
+                        frames_counter += 1
+                        continue
 
                     # iterate over channels
                     # TODO: why to resize each channel individually?
