@@ -15,36 +15,12 @@ import numpy as np
 import pandas as pd
 
 import tensorflow as tf
-
 from tensorflow.python.platform import gfile
-from tensorflow.python.platform import flags
-from tensorflow.python.platform import app
 
 import hand_face_detection
 
-FLAGS = flags.FLAGS
-flags.DEFINE_integer('n_videos_in_record', 10,
-                     'Number of videos stored in one single tfrecord file')
-flags.DEFINE_string('image_color_depth', "uint8",
-                    'Color depth as string for the images stored in the tfrecord files. '
-                    'Has to correspond to the source video color depth. '
-                    'Specified as dtype (e.g. uint8 or uint16)')
-flags.DEFINE_string('file_suffix', "*.mp4",
-                    'defines the video file type, e.g. .mp4')
-
-flags.DEFINE_string('source', './example/input', 'Directory with video files')
-flags.DEFINE_string('destination', './example/output',
-                    'Directory for storing tf records')
-flags.DEFINE_integer('width_video', 1280, 'the width of the videos in pixels')
-flags.DEFINE_integer('height_video', 720, 'the height of the videos in pixels')
-flags.DEFINE_integer('n_frames_per_video', 5,
-                     'specifies the number of frames to be taken from each video')
-flags.DEFINE_integer('n_channels', 4,
-                     'specifies the number of channels the videos have')
-flags.DEFINE_string('video_filenames', None,
-                    'specifies the video file names as a list in the case the video paths shall not be determined by the '
-                    'script')
-
+MODEL = tf.saved_model.load(
+        '/home/alvaro/Downloads/centernet_resnet50_v2-20220318T025013Z-001/centernet_resnet50_v2/saved_model')
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -157,6 +133,9 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     filenames_split = list(get_chunks(filenames, n_videos_in_record))
     class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
+    total_batch_number = 1 if n_videos_in_record > len(
+        filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
+
     data = None
 
     for i, batch in enumerate(filenames_split):
@@ -166,14 +145,11 @@ def convert_videos_to_tfrecord(source_path, destination_path,
             data = None
         data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                               n_frames_per_video=n_frames_per_video, labels=labels)
-        if n_videos_in_record > len(filenames):
-            total_batch_number = 1
-        else:
-            total_batch_number = int(
-                math.ceil(len(filenames) / n_videos_in_record))
+        
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + " completed")
         assert data.size != 0, 'something went wrong during video to numpy conversion'
+
         save_numpy_to_tfrecords(data, batch, destination_path, 'batch_',
                                 n_videos_in_record, i + 1, total_batch_number,
                                 color_depth=color_depth, labels=labels)
@@ -265,8 +241,6 @@ def repeat_image_retrieval(cap, file_path, video, take_all_frames, steps, frame,
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
     cap, frame_count = get_video_capture_and_frame_count(file_path)
-    detect_fn = tf.saved_model.load(
-        '/home/alvaro/Downloads/centernet_resnet50_v2-20220318T025013Z-001/centernet_resnet50_v2/saved_model')
 
     take_all_frames = True if n_frames_per_video == 'all' else False
 
@@ -285,8 +259,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         file_path) + " does not have enough frames. Skipping video."
 
     # variables needed
-    image = np.zeros((height, width, n_channels),
-                     dtype=FLAGS.image_color_depth)
     frames_counter = 0
     prev_frame_none = False
     restart = True
@@ -297,17 +269,21 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                 get_next_frame(cap)
                 frames_counter += 1
                 continue
-            
+
             if math.floor(frame_number % steps) == 0 or take_all_frames:
                 frame = get_next_frame(cap)
 
                 face, hand_1, hand_2, triangle_features = hand_face_detection.detect_visual_cues_from_image(
                     image=frame,
                     label_map_path='utils/label_map.pbtxt',
-                    detect_fn=detect_fn,
+                    detect_fn=MODEL,
                     height=512,
                     width=512
                 )
+
+                if not triangle_features:
+                    frames_counter += 1
+                    continue
 
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
@@ -326,15 +302,11 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         break
 
                     # iterate over channels
-                    for n_channel in range(n_channels): # TODO: why to resize each channel individually?
-                        resized_image = cv2.resize(
-                            frame[:, :, n_channel], (width, height))
-                        image[:, :, n_channel] = resized_image
-
-                    video[frames_counter, :, :, :] = image
-                    faces[frames_counter, :, :, :] = face
-                    hands_1[frames_counter, :, :, :] = hand_1
-                    hands_2[frames_counter, :, :, :] = hand_2
+                    # TODO: why to resize each channel individually?
+                    video[frames_counter, :, :, :] = resize_frame(height, width, n_channels, frame)
+                    faces[frames_counter, :, :, :] = resize_frame(50, 50, n_channels, face)
+                    hands_1[frames_counter, :, :, :] = resize_frame(50, 50, n_channels, hand_1)
+                    hands_2[frames_counter, :, :, :] = resize_frame(50, 50, n_channels, hand_2)
 
                     frames_counter += 1
             else:
@@ -344,9 +316,22 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         number_of_videos) + " videos within batch processed: ", file_path)
 
     video = video[starting_frames_to_skip:, :, :, :]
-    video_copy = video.copy()
+    faces = faces[starting_frames_to_skip:, :, :, :]
+    hands_1 = hands_1[starting_frames_to_skip:, :, :, :]
+    hands_2 = hands_2[starting_frames_to_skip:, :, :, :]
+
     cap.release()
-    return video_copy
+    return faces, hands_1, hands_2
+
+def resize_frame(height, width, n_channels, frame):
+    image = np.zeros((height, width, n_channels), dtype='uint8')
+
+    for n_channel in range(n_channels):
+        resized_image = cv2.resize(
+                            frame[:, :, n_channel], (width, height))
+        image[:, :, n_channel] = resized_image
+
+    return image
 
 
 def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
@@ -376,11 +361,11 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
     final_labels = []
     for i, file in enumerate(filenames):
         try:
-            video = video_file_to_ndarray(i=i, file_path=file,
-                                          n_frames_per_video=n_frames_per_video,
-                                          height=height, width=width,
-                                          number_of_videos=number_of_videos)
-            data.append(video)
+            faces, hands_1, hands_2 = video_file_to_ndarray(i=i, file_path=file,
+                                                            n_frames_per_video=n_frames_per_video,
+                                                            height=height, width=width,
+                                                            number_of_videos=number_of_videos)
+            data.append([faces, hands_1, hands_2])
             final_labels.append(labels[i])
         except Exception as e:
             print(e)
@@ -391,5 +376,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Downloads/AUTSL/train', 'example/train',
-        n_videos_in_record=10, n_frames_per_video=24, file_suffix="*.mp4",
+        n_videos_in_record=1, n_frames_per_video=24, file_suffix="*.mp4",
         width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train_labels.csv')
