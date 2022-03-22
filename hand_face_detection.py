@@ -1,12 +1,11 @@
-from turtle import right
+import math
+from itertools import combinations
+
 import tensorflow as tf
 import numpy as np
 import cv2
-import time
+
 from utils import label_map_util
-import argparse
-from itertools import combinations
-import math
 
 physical_devices = tf.config.list_physical_devices('GPU')
 try:
@@ -15,17 +14,27 @@ except:
     print('GPU not found')
 
 
-def get_centroids(bouding_boxes):
+def get_centroids(bouding_boxes, last_positions):
     centroids = []
+    last_position_used = False
 
-    for object in bouding_boxes:
-        class_name = list(object.keys())[0]
-        bbox = object.get(class_name)
-        xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
+    for class_name in bouding_boxes:
+        bbox = bouding_boxes.get(class_name)
+        if bbox:
+            xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
+        else:
+            bbox = last_positions.get(class_name)
+            last_position_used = True
+
+            if not bbox:
+                return centroids, last_position_used
+
+            xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
+
         centroid = (int((xmin+xmax)/2), int((ymin+ymax)/2))
         centroids.append(centroid)
 
-    return centroids
+    return centroids, last_position_used
 
 
 def get_angle(opposite, adjacent_1, adjacent_2):
@@ -71,15 +80,15 @@ def compute_triangle_features(centroids, img, draw_on_img):
     return triangle_features, img
 
 
-def compute_features_and_draw_lines(bouding_boxes, img, draw_on_img=False):
-    centroids = get_centroids(bouding_boxes)
+def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_img=False):
+    centroids, last_position_used = get_centroids(bouding_boxes, last_positions)
 
     triangle_features = {}
     if len(centroids) == 3:
         triangle_features, img = compute_triangle_features(
             centroids, img, draw_on_img)
 
-    return img, triangle_features
+    return img, triangle_features, last_position_used
 
 
 def compute_centroids_distances(img, draw_on_img, centroids):
@@ -101,7 +110,7 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
     category_index = label_map_util.create_category_index_from_labelmap(label_map_path,
                                                                         use_display_name=True)
 
-    output_bboxes = []
+    output_bboxes = {'face': None, 'hand_1': None, 'hand_2': None}
     hand_counter = 2
     face_counter = 1
     for i in np.where(scores > .4)[0]:
@@ -120,8 +129,8 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
         xmin, xmax, ymin, ymax = boxes[i][1], boxes[i][3], boxes[i][0], boxes[i][2]
         xmin, xmax, ymin, ymax = int(
             xmin * width), int(xmax * width), int(ymin * heigth), int(ymax * heigth)
-        output_bboxes.append(
-            {class_name: {'xmin': xmin, 'xmax': xmax, 'ymin': ymin, 'ymax': ymax}})
+        output_bboxes[class_name] = {'xmin': xmin,
+                                     'xmax': xmax, 'ymin': ymin, 'ymax': ymax}
 
         if draw_on_image:
             color = (0, 255, 0) if class_name == 'face' else (255, 0, 0)
@@ -136,26 +145,29 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
     return image_np_with_detections, output_bboxes
 
 
-def get_image_segments(input_image, bouding_boxes):
+def get_image_segments(input_image, bouding_boxes, last_face_detection, last_hand_1_detection, last_hand_2_detection):
     face = None
     hand_1 = None
     hand_2 = None
+    img_segment = None
+    last_position_used = False
 
-    for object in bouding_boxes:
-        class_name = list(object.keys())[0]
-        bbox = object.get(class_name)
+    for class_name in bouding_boxes:
+        bbox = bouding_boxes.get(class_name)
 
-        img_segment = input_image[bbox['ymin']
-            :bbox['ymax'], bbox['xmin']:bbox['xmax']]
+        if bbox:
+            img_segment = input_image[bbox['ymin']:bbox['ymax'], bbox['xmin']:bbox['xmax']]
+        else:
+            last_position_used = True
 
         if class_name == 'face':
-            face = img_segment
+            face = img_segment if not last_position_used else last_face_detection
         elif class_name == 'hand_1':
-            hand_1 = img_segment
+            hand_1 = img_segment if not last_position_used else last_hand_1_detection
         else:
-            hand_2 = img_segment
+            hand_2 = img_segment if not last_position_used else last_hand_2_detection
 
-    return face, hand_1, hand_2
+    return face, hand_1, hand_2, last_position_used
 
 
 def infer_images(image, label_map_path, detect_fn, heigth, width):
@@ -190,10 +202,11 @@ def detect_visual_cues_from_image(**kwargs):
     drawn_image, bouding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'))
 
-    drawn_image, triangle_features = compute_features_and_draw_lines(
-        bouding_boxes, drawn_image)
+    drawn_image, triangle_features, last_position_used = compute_features_and_draw_lines(
+        bouding_boxes, drawn_image, kwargs.get('last_positions'))
 
-    face_segment, hand_1, hand_2 = get_image_segments(
-        input_image, bouding_boxes)
+    face_segment, hand_1, hand_2, last_position_used = get_image_segments(
+        input_image, bouding_boxes, kwargs.get('last_face_detection'), 
+        kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
 
-    return face_segment, hand_1, hand_2, triangle_features
+    return face_segment, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used
