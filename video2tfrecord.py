@@ -9,6 +9,7 @@
 import os
 import time
 import math
+import bisect
 
 import cv2
 import numpy as np
@@ -216,27 +217,25 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
         writer.close()
 
 
-def repeat_image_retrieval(cap, file_path, video, take_all_frames, steps, frame,
-                           prev_frame_none, frames_counter):
+def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
     stop = False
 
-    if frame and prev_frame_none or steps <= 0:
+    if capture_restarted or steps <= 0:
         stop = True
-        return stop, cap, video, steps, prev_frame_none, frames_counter
+        return stop, cap, steps, capture_restarted
 
     if not take_all_frames:
         # repeat with smaller step size
         steps -= 1
 
-    prev_frame_none = True
+    capture_restarted = True
     print("reducing step size due to error for video: ", file_path)
-    frames_counter = 0
     cap.release()
-    cap = get_video_capture_and_frame_count(file_path)
+    cap, _ = get_video_capture_and_frame_count(file_path)
     # wait for image retrieval to be ready
     time.sleep(2)
 
-    return stop, cap, video, steps, prev_frame_none, frames_counter
+    return stop, cap, steps, capture_restarted
 
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
@@ -245,7 +244,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     take_all_frames = True if n_frames_per_video == 'all' else False
 
     n_frames = frame_count if take_all_frames else n_frames_per_video
-    frames_to_skip = 8
 
     video = []
     faces = []
@@ -258,18 +256,29 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     last_positions = {}
     last_position_used = False
 
-    steps = frame_count if take_all_frames else int(
-        math.floor((frame_count - frames_to_skip) / n_frames_per_video))
-
-    assert not (frame_count < 1 or steps < 1), str(
-        file_path) + " does not have enough frames. Skipping video."
-
     # variables needed
     frames_counter = 0
-    prev_frame_none = False
+    capture_restarted = False
     restart = True
+    frames_used = []
 
     while restart:
+        frames_to_skip = 8
+        
+        steps = frame_count if take_all_frames else int(
+            math.floor((frame_count - frames_to_skip) / n_frames_per_video))
+
+        assert not (frame_count < 1 or steps < 1), str(
+            file_path) + " does not have enough frames. Skipping video."
+
+        if frames_counter > 0:
+            stop, cap, steps, capture_restarted = repeat_image_retrieval(
+                cap, file_path, take_all_frames, steps, capture_restarted)
+
+            if stop:
+                restart = False 
+                break
+
         for frame_number in range(frame_count):
             if frames_to_skip > 0:  # skipping the first frames of the sign language video
                 get_next_frame(cap)
@@ -280,21 +289,22 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
-                    stop, _, _1, _2, _3, _4 = repeat_image_retrieval(
-                        cap, file_path, video, take_all_frames, steps, frame, prev_frame_none,
-                        frames_counter)
+                    stop, cap, steps, capture_restarted = repeat_image_retrieval(
+                        cap, file_path, take_all_frames, steps, capture_restarted)
+
                     if stop:
                         restart = False
-                        break
-                    # else:
-                    #     video[frames_counter, :, :, :].fill(0)
-                    #     video.append(np.zeros((height, width, n_channels), dtype=np.uint8))
-                    #     frames_counter += 1
-                else:
-                    if frames_counter >= n_frames:
-                        restart = False
-                        break
 
+                    break
+
+                elif frames_counter >= n_frames:
+                    restart = False
+                    break
+
+                elif frame_number in frames_used:
+                    continue
+
+                else:
                     face, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='utils/label_map.pbtxt',
@@ -312,24 +322,27 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     # iterate over channels
                     # TODO: why to resize each channel individually?
-                    video.append(resize_frame(height, width, n_channels, frame))
-                    faces.append(resize_frame(50, 50, n_channels, face))
-                    hands_1.append(resize_frame(50, 50, n_channels, hand_1))
-                    hands_2.append(resize_frame(50, 50, n_channels, hand_2))
-
-                    if not last_position_used:
-                        last_face_detection = faces[frames_counter]
-                        last_hand_1_detection = hands_1[frames_counter]
-                        last_hand_2_detection = hands_2[frames_counter]
-                        last_positions = bouding_boxes
+                    
+                    if not capture_restarted:
+                        video.append(resize_frame(height, width, n_channels, frame))
+                        faces.append(resize_frame(50, 50, n_channels, face))
+                        hands_1.append(resize_frame(50, 50, n_channels, hand_1))
+                        hands_2.append(resize_frame(50, 50, n_channels, hand_2))
                     else:
-                        last_face_detection = []
-                        last_hand_1_detection = []
-                        last_hand_2_detection = []
-                        last_positions = {}
-                        last_position_used = False
+                        insert_index = bisect.bisect_left(frames_used, frame_number)
+                        video.insert(insert_index, resize_frame(height, width, n_channels, frame))
+                        faces.insert(insert_index, resize_frame(50, 50, n_channels, face))
+                        hands_1.insert(insert_index, resize_frame(50, 50, n_channels, hand_1))
+                        hands_2.insert(insert_index, resize_frame(50, 50, n_channels, hand_2))
+
+                    last_face_detection = [] if last_position_used else faces[frames_counter]
+                    last_hand_1_detection = [] if last_position_used else hands_1[frames_counter]
+                    last_hand_2_detection = [] if last_position_used else hands_2[frames_counter]
+                    last_positions = {} if last_position_used else bouding_boxes
+                    last_position_used = False
 
                     frames_counter += 1
+                    frames_used.append(frame_number)
             else:
                 get_next_frame(cap)
 
