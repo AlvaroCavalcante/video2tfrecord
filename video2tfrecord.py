@@ -137,13 +137,12 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     total_batch_number = 1 if n_videos_in_record > len(
         filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
 
-    data = None
 
     for i, batch in enumerate(filenames_split):
+        data = None
+
         labels = get_data_label(batch, class_labels)
 
-        if data is not None:
-            data = None
         data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                               n_frames_per_video=n_frames_per_video, labels=labels)
         
@@ -186,16 +185,25 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
             writer = get_tfrecord_writer(destination_path, name, current_batch_number, total_batch_number, writer)
 
         for image_count in range(num_images):
-            path = 'blob' + '/' + str(image_count)
-            image = data[video_count, image_count, :, :, :]
-            image = image.astype(color_depth)
+            face_stream = 'face' + '/' + str(image_count)
+            hand_1_stream = 'hand_1' + '/' + str(image_count)
+            hand_2_stream = 'hand_2' + '/' + str(image_count)
 
-            image_raw = tf.image.encode_jpeg(image).numpy()  # image.tostring()
+            face_image = data[video_count, 0, image_count, :, :, :].astype(color_depth)
+            hand_1_image = data[video_count, 1, image_count, :, :, :].astype(color_depth)
+            hand_2_image = data[video_count, 2, image_count, :, :, :].astype(color_depth)
+
+            face_raw = tf.image.encode_jpeg(face_image).numpy()  # image.tostring()
+            hand_1_raw = tf.image.encode_jpeg(hand_1_image).numpy()  # image.tostring()
+            hand_2_raw = tf.image.encode_jpeg(hand_2_image).numpy()  # image.tostring()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
 
-            feature[path] = _bytes_feature(image_raw)
+            feature[face_stream] = _bytes_feature(face_raw)
+            feature[hand_1_stream] = _bytes_feature(hand_1_raw)
+            feature[hand_2_stream] = _bytes_feature(hand_2_raw)
+
             feature['video_name'] = _bytes_feature(str.encode(file))
             feature['height'] = _int64_feature(height)
             feature['width'] = _int64_feature(width)
