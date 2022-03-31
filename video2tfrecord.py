@@ -172,10 +172,10 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
     """
 
     num_videos = data.shape[0]
-    num_images = data.shape[1]
-    num_channels = data.shape[4]
-    height = data.shape[2]
-    width = data.shape[3]
+    num_images = data.shape[2]
+    num_channels = data.shape[5]
+    height = data.shape[3]
+    width = data.shape[4]
 
     writer = None
     feature = {}
@@ -183,16 +183,7 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
     for video_count in range((num_videos)):
 
         if video_count % fragmentSize == 0:
-            if writer is not None:
-                writer.close()
-            filename = os.path.join(destination_path,
-                                    name + str(current_batch_number) + '_of_' + str(
-                                        total_batch_number) + '.tfrecords')
-            print('Writing', filename)
-            if tf.__version__.split('.')[0] == '2':
-                writer = tf.io.TFRecordWriter(filename)
-            else:
-                writer = tf.python_io.TFRecordWriter(filename)
+            writer = get_tfrecord_writer(destination_path, name, current_batch_number, total_batch_number, writer)
 
         for image_count in range(num_images):
             path = 'blob' + '/' + str(image_count)
@@ -215,6 +206,19 @@ def save_numpy_to_tfrecords(data, filenames, destination_path, name, fragmentSiz
         writer.write(example.SerializeToString())
     if writer is not None:
         writer.close()
+
+def get_tfrecord_writer(destination_path, name, current_batch_number, total_batch_number, writer):
+    if writer is not None:
+        writer.close()
+    filename = os.path.join(destination_path,
+                                    name + str(current_batch_number) + '_of_' + str(
+                                        total_batch_number) + '.tfrecords')
+    print('Writing', filename)
+    if tf.__version__.split('.')[0] == '2':
+        writer = tf.io.TFRecordWriter(filename)
+    else:
+        writer = tf.python_io.TFRecordWriter(filename)
+    return writer
 
 
 def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
