@@ -332,12 +332,14 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         faces.append(resize_frame(50, 50, n_channels, face))
                         hands_1.append(resize_frame(50, 50, n_channels, hand_1))
                         hands_2.append(resize_frame(50, 50, n_channels, hand_2))
+                        frames_used.append(frame_number)
                     else:
                         insert_index = bisect.bisect_left(frames_used, frame_number)
                         video.insert(insert_index, resize_frame(height, width, n_channels, frame))
                         faces.insert(insert_index, resize_frame(50, 50, n_channels, face))
                         hands_1.insert(insert_index, resize_frame(50, 50, n_channels, hand_1))
                         hands_2.insert(insert_index, resize_frame(50, 50, n_channels, hand_2))
+                        frames_used.insert(insert_index, frame_number)
 
                     last_face_detection = [] if last_position_used else faces[frames_counter]
                     last_hand_1_detection = [] if last_position_used else hands_1[frames_counter]
@@ -346,7 +348,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     last_position_used = False
 
                     frames_counter += 1
-                    frames_used.append(frame_number)
             else:
                 get_next_frame(cap)
 
