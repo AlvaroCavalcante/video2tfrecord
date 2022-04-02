@@ -31,7 +31,7 @@ def read_tfrecord(example_proto):
         width = 50
         height = 50
 
-        face_image = get_image(features[face_stream], width, height)
+        face_image = get_image(features[face_stream], 80, 80)
         hand_1_image = get_image(features[hand_1_stream], width, height)
         hand_2_image = get_image(features[hand_2_stream], width, height)
 
@@ -41,7 +41,7 @@ def read_tfrecord(example_proto):
 
         label = tf.cast(features['label'], tf.int32)
 
-    return [face, hand_1, hand_2], label
+    return [hand_1, hand_2], face, label
 
 
 def get_image(img, width, height):
@@ -83,10 +83,15 @@ all_elements = load_data_tfrecord(tf_record_path).unbatch()
 augmented_element = all_elements.repeat().batch(5)
 
 
-for (seq, label) in augmented_element:
-    plt.figure(figsize=(15, int(15*row/col)))
+def plot_figure(row, col, img_seq):
     for j in range(row*col):
         plt.subplot(row, col, j+1)
         plt.axis('off')
-        plt.imshow(np.array(seq[4, 1, j, ]))
+        plt.imshow(np.array(img_seq[j]))
     plt.show()
+
+for (hand_seq, face_seq, label) in augmented_element:
+    plt.figure(figsize=(15, int(15*row/col)))
+    plot_figure(row, col, hand_seq[0][0])
+    plot_figure(row, col, hand_seq[0][1])
+    plot_figure(row, col, face_seq[0])
