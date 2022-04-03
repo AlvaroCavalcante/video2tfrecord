@@ -89,9 +89,9 @@ def get_data_label(batch_files, class_labels):
 
 def convert_videos_to_tfrecord(source_path, destination_path,
                                n_videos_in_record=10, n_frames_per_video='all',
-                               file_suffix="*.mp4",
+                               file_suffix='*.mp4',
                                width=1280, height=720,
-                               color_depth="uint8", video_filenames=None, label_path=None):
+                               color_depth='uint8', video_filenames=None, label_path=None):
     """Starts the process of converting video files to tfrecord files.
 
     Args:
@@ -147,7 +147,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
                                               n_frames_per_video=n_frames_per_video, labels=labels)
         
         print('Batch ' + str(i + 1) + '/' +
-              str(total_batch_number) + " completed")
+              str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
         save_numpy_to_tfrecords(data, batch, destination_path, 'batch_',
@@ -241,7 +241,7 @@ def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_resta
         steps -= 1
 
     capture_restarted = True
-    print("reducing step size due to error for video: ", file_path)
+    print('reducing step size due to error for video: ', file_path)
     cap.release()
     cap, _ = get_video_capture_and_frame_count(file_path)
     # wait for image retrieval to be ready
@@ -251,6 +251,9 @@ def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_resta
 
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
+    hand_width, hand_height = 80, 80
+    face_width, face_height = 80, 80
+
     cap, frame_count = get_video_capture_and_frame_count(file_path)
 
     take_all_frames = True if n_frames_per_video == 'all' else False
@@ -275,13 +278,13 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     frames_used = []
 
     while restart:
-        frames_to_skip = 8
+        frames_to_skip = 8 # initial frames to skip in sign language video
         
         steps = frame_count if take_all_frames else int(
             math.floor((frame_count - frames_to_skip) / n_frames_per_video))
 
         assert not (frame_count < 1 or steps < 1), str(
-            file_path) + " does not have enough frames. Skipping video."
+            file_path) + ' does not have enough frames. Skipping video.'
 
         if frames_counter > 0:
             stop, cap, steps, capture_restarted = repeat_image_retrieval(
@@ -337,16 +340,16 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     
                     if not capture_restarted:
                         video.append(resize_frame(height, width, n_channels, frame))
-                        faces.append(resize_frame(50, 50, n_channels, face))
-                        hands_1.append(resize_frame(50, 50, n_channels, hand_1))
-                        hands_2.append(resize_frame(50, 50, n_channels, hand_2))
+                        faces.append(resize_frame(face_width, face_height, n_channels, face))
+                        hands_1.append(resize_frame(hand_width, hand_height, n_channels, hand_1))
+                        hands_2.append(resize_frame(hand_width, hand_height, n_channels, hand_2))
                         frames_used.append(frame_number)
                     else:
                         insert_index = bisect.bisect_left(frames_used, frame_number)
                         video.insert(insert_index, resize_frame(height, width, n_channels, frame))
-                        faces.insert(insert_index, resize_frame(50, 50, n_channels, face))
-                        hands_1.insert(insert_index, resize_frame(50, 50, n_channels, hand_1))
-                        hands_2.insert(insert_index, resize_frame(50, 50, n_channels, hand_2))
+                        faces.insert(insert_index, resize_frame(face_width, face_height, n_channels, face))
+                        hands_1.insert(insert_index, resize_frame(hand_width, hand_height, n_channels, hand_1))
+                        hands_2.insert(insert_index, resize_frame(hand_width, hand_height, n_channels, hand_2))
                         frames_used.insert(insert_index, frame_number)
 
                     last_face_detection = [] if last_position_used else faces[frames_counter]
@@ -359,8 +362,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             else:
                 get_next_frame(cap)
 
-    print(str(i + 1) + " of " + str(
-        number_of_videos) + " videos within batch processed: ", file_path)
+    print(str(i + 1) + ' of ' + str(
+        number_of_videos) + ' videos within batch processed: ', file_path)
 
     video = np.array(video)
     faces = np.array(faces)
@@ -423,5 +426,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Downloads/AUTSL/train', 'example/train',
-        n_videos_in_record=1, n_frames_per_video=24, file_suffix="*.mp4",
+        n_videos_in_record=5, n_frames_per_video=16, file_suffix="*.mp4",
         width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train_labels.csv')
