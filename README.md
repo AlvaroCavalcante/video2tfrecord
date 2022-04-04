@@ -2,6 +2,15 @@
 # Description
 This project was forked and based on the [video2tfrecord](https://github.com/ferreirafabio/video2tfrecord) library. The goal of this work is to help to transform a video dataset into a series of TFRecord files used on some ML frameworks like TensorFlow. This project was applied in the creation of a sign language recognition system, where the code here was used as the pre processing step to transform the raw data into different images that were feed to the model.
 
+# Install instructions
+You can install on your local machine using the requirements file, or use docker installation to run on GPU. To do this, first it's necessary to build a image:
+```
+sudo docker build . -t tf-gpu --network=host
+```
+After that, you just need to run the script with the docker image that you built:
+```
+sudo docker run --gpus all -it --rm -v $PWD:/tmp -w /tmp tf-gpu python video2tfrecord.py
+```
 
 # Reading from tfrecord
 To check the results (the images of the video stored in the tfrecord) run the ```read_dataset.py``` script.
