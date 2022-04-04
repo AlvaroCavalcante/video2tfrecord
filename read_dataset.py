@@ -26,12 +26,10 @@ def read_tfrecord(example_proto):
         features = tf.io.parse_single_example(
             example_proto, features=feature_dict)
 
-        # width = tf.cast(features['width'], tf.int32)
-        # height = tf.cast(features['height'], tf.int32)
-        width = 50
-        height = 50
+        width = tf.cast(features['width'], tf.int32)
+        height = tf.cast(features['height'], tf.int32)
 
-        face_image = get_image(features[face_stream], 80, 80)
+        face_image = get_image(features[face_stream], width, height)
         hand_1_image = get_image(features[hand_1_stream], width, height)
         hand_2_image = get_image(features[hand_2_stream], width, height)
 
