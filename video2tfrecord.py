@@ -21,7 +21,7 @@ from tensorflow.python.platform import gfile
 import hand_face_detection
 
 MODEL = tf.saved_model.load(
-        '/home/alvaro/Downloads/centernet_resnet50_v2-20220318T025013Z-001/centernet_resnet50_v2/saved_model')
+        './utils/models/centernet_restnet50/saved_model')
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -425,6 +425,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Downloads/AUTSL/train', 'example/train',
-        n_videos_in_record=5, n_frames_per_video=16, file_suffix="*.mp4",
-        width=800, height=600, label_path='/home/alvaro/Downloads/AUTSL/train_labels.csv')
+        './AUTSL/train', 'example/train',
+        n_videos_in_record=10, n_frames_per_video=16, file_suffix="*.mp4",
+        width=800, height=600, label_path='./AUTSL/train_labels.csv')
