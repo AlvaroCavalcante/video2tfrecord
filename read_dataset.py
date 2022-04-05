@@ -9,14 +9,16 @@ def read_tfrecord(example_proto):
     hand_2 = []
 
     for image_count in range(16):
-        face_stream = 'face' + '/' + str(image_count)
-        hand_1_stream = 'hand_1' + '/' + str(image_count)
-        hand_2_stream = 'hand_2' + '/' + str(image_count)
+        face_stream = 'face/' + str(image_count)
+        hand_1_stream = 'hand_1/' + str(image_count)
+        hand_2_stream = 'hand_2/' + str(image_count)
+        triangle_stream = 'triangle_data/' + str(image_count)
 
         feature_dict = {
             face_stream: tf.io.FixedLenFeature([], tf.string),
             hand_1_stream: tf.io.FixedLenFeature([], tf.string),
             hand_2_stream: tf.io.FixedLenFeature([], tf.string),
+            triangle_stream: tf.io.VarLenFeature(tf.float32),
             'height': tf.io.FixedLenFeature([], tf.int64),
             'width': tf.io.FixedLenFeature([], tf.int64),
             'depth': tf.io.FixedLenFeature([], tf.int64),
@@ -25,6 +27,8 @@ def read_tfrecord(example_proto):
 
         features = tf.io.parse_single_example(
             example_proto, features=feature_dict)
+
+        triangle_data = tf.reshape(features[triangle_stream].values, (1, 12))
 
         width = tf.cast(features['width'], tf.int32)
         height = tf.cast(features['height'], tf.int32)
@@ -39,7 +43,7 @@ def read_tfrecord(example_proto):
 
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, label
+    return [hand_1, hand_2], face, triangle_data, label
 
 
 def get_image(img, width, height):
@@ -72,7 +76,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Área de Trabalho/video2tfrecord/example/train/*.tfrecords')
+    '/home/alvaro/Documentos/video2tfrecord/example/train/*.tfrecords')
 row = 4
 col = 4
 #row = min(row,15//col)
@@ -88,7 +92,7 @@ def plot_figure(row, col, img_seq):
         plt.imshow(np.array(img_seq[j]))
     plt.show()
 
-for (hand_seq, face_seq, label) in augmented_element:
+for (hand_seq, face_seq, triangle_data, label) in augmented_element:
     plt.figure(figsize=(15, int(15*row/col)))
     plot_figure(row, col, hand_seq[0][0])
     plot_figure(row, col, hand_seq[0][1])
