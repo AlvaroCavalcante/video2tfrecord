@@ -106,3 +106,5 @@ ENV/
 *.tfrecords
 
 /AUTSL
+
+/utils/models
