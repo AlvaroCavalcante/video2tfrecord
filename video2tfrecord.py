@@ -294,7 +294,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     last_positions = {}
     last_position_used = False
 
-    # variables needed
     frames_counter = 0
     capture_restarted = False
     restart = True
@@ -347,8 +346,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         image=frame,
                         label_map_path='utils/label_map.pbtxt',
                         detect_fn=MODEL,
-                        height=512,
-                        width=512,
+                        height=height,
+                        width=width,
                         last_face_detection=last_face_detection,
                         last_hand_1_detection=last_hand_1_detection,
                         last_hand_2_detection=last_hand_2_detection,
@@ -402,15 +401,24 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         number_of_videos) + ' videos within batch processed: ', file_path)
 
     # video = np.array(video)
-    faces = np.array(faces)
-    hands_1 = np.array(hands_1)
-    hands_2 = np.array(hands_2)
-    triangle_images = np.array(triangle_images)
-    triangle_features_list = np.array(triangle_features_list)
+    faces = fill_data_and_convert_to_np(faces, n_frames, face_height, face_width)
+    hands_1 = fill_data_and_convert_to_np(hands_1, n_frames, hand_height, hand_width)
+    hands_2 = fill_data_and_convert_to_np(hands_2, n_frames, hand_height, hand_width)
+    triangle_images = fill_data_and_convert_to_np(triangle_images, n_frames, height, width)
+    triangle_features_list = fill_data_and_convert_to_np(triangle_features_list, n_frames, 1, 12, False)
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, triangle_images
 
+
+def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
+    while len(data) < n_frames:
+        if is_image:
+            data.append(np.zeros((height, width, 3), dtype='uint8'))
+        else:
+            data.append([0]* width)
+
+    return np.array(data)
 
 def resize_frame(height, width, n_channels, frame):
     image = np.zeros((height, width, n_channels), dtype='uint8')
@@ -470,4 +478,4 @@ if __name__ == '__main__':
     convert_videos_to_tfrecord(
         './AUTSL/sample_data/sign_1', 'example/train',
         n_videos_in_record=17, n_frames_per_video=16, file_suffix="*.mp4",
-        width=800, height=600, label_path='./AUTSL/train_labels.csv')
+        width=512, height=512, label_path='./AUTSL/train_labels.csv')
