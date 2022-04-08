@@ -80,7 +80,7 @@ def compute_triangle_features(centroids, img, draw_on_img):
     return triangle_features, img
 
 
-def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_img=False):
+def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_img=True):
     centroids, last_position_used = get_centroids(bouding_boxes, last_positions)
 
     triangle_features = {}
@@ -209,4 +209,4 @@ def detect_visual_cues_from_image(**kwargs):
         input_image, bouding_boxes, kwargs.get('last_face_detection'), 
         kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
 
-    return face_segment, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, drawn_image, bouding_boxes, last_position_used

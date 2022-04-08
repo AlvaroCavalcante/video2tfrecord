@@ -147,19 +147,19 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
         labels = get_data_label(batch, class_labels)
 
-        data, triangle_data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
+        data, triangle_images_data, triangle_data, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                                              n_frames_per_video=n_frames_per_video, labels=labels)
 
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
-        save_numpy_to_tfrecords(data, triangle_data, batch, destination_path, 'batch_',
+        save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, batch, destination_path, 'batch_',
                                 n_videos_in_record, i + 1, total_batch_number,
                                 color_depth=color_depth, labels=labels)
 
 
-def save_numpy_to_tfrecords(data, triangle_data, filenames, destination_path, name, fragmentSize,
+def save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, filenames, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
                             color_depth, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
@@ -194,6 +194,7 @@ def save_numpy_to_tfrecords(data, triangle_data, filenames, destination_path, na
             hand_1_stream = 'hand_1/' + str(image_count)
             hand_2_stream = 'hand_2/' + str(image_count)
             triangle_stream = 'triangle_data/' + str(image_count)
+            triangle_images_stream = 'triangle_images_data/' + str(image_count)
 
             face_image = data[video_count, 0,
                               image_count, :, :, :].astype(color_depth)
@@ -201,6 +202,7 @@ def save_numpy_to_tfrecords(data, triangle_data, filenames, destination_path, na
                                 image_count, :, :, :].astype(color_depth)
             hand_2_image = data[video_count, 2,
                                 image_count, :, :, :].astype(color_depth)
+            triangle_img = triangle_images_data[video_count, image_count, :, :, :].astype(color_depth)
 
             face_raw = tf.image.encode_jpeg(
                 face_image).numpy()  # image.tostring()
@@ -208,6 +210,8 @@ def save_numpy_to_tfrecords(data, triangle_data, filenames, destination_path, na
                 hand_1_image).numpy()  # image.tostring()
             hand_2_raw = tf.image.encode_jpeg(
                 hand_2_image).numpy()  # image.tostring()
+            triangle_img_raw = tf.image.encode_jpeg(
+                triangle_img).numpy()  # image.tostring()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
@@ -215,6 +219,7 @@ def save_numpy_to_tfrecords(data, triangle_data, filenames, destination_path, na
             feature[face_stream] = _bytes_feature(face_raw)
             feature[hand_1_stream] = _bytes_feature(hand_1_raw)
             feature[hand_2_stream] = _bytes_feature(hand_2_raw)
+            feature[triangle_images_stream] = _bytes_feature(triangle_img_raw)
 
             feature['video_name'] = _bytes_feature(str.encode(file))
             feature['height'] = _int64_feature(height)
@@ -281,6 +286,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     hands_1 = []
     hands_2 = []
     triangle_features_list = []
+    triangle_images = []
 
     last_face_detection = []
     last_hand_1_detection = []
@@ -337,7 +343,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     continue
 
                 else:
-                    face, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
+                    face, hand_1, hand_2, triangle_features, triangle_img, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='utils/label_map.pbtxt',
                         detect_fn=MODEL,
@@ -366,6 +372,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         hands_2.append(resize_frame(
                             hand_width, hand_height, n_channels, hand_2))
                         frames_used.append(frame_number)
+                        triangle_images.append(triangle_img)
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
@@ -379,6 +386,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         hands_2.insert(insert_index, resize_frame(
                             hand_width, hand_height, n_channels, hand_2))
                         frames_used.insert(insert_index, frame_number)
+                        triangle_images.insert(insert_index, triangle_img)
 
                     last_face_detection = [] if last_position_used else faces[frames_counter]
                     last_hand_1_detection = [] if last_position_used else hands_1[frames_counter]
@@ -397,10 +405,11 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     faces = np.array(faces)
     hands_1 = np.array(hands_1)
     hands_2 = np.array(hands_2)
+    triangle_images = np.array(triangle_images)
     triangle_features_list = np.array(triangle_features_list)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list
+    return faces, hands_1, hands_2, triangle_features_list, triangle_images
 
 
 def resize_frame(height, width, n_channels, frame):
@@ -440,23 +449,25 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
     data = []
     triangle_data = []
     final_labels = []
+    triangle_images_data = []
     for i, file in enumerate(filenames):
         try:
-            faces, hands_1, hands_2, triangle_features = video_file_to_ndarray(i=i, file_path=file,
+            faces, hands_1, hands_2, triangle_features, triangle_images = video_file_to_ndarray(i=i, file_path=file,
                                                                                n_frames_per_video=n_frames_per_video,
                                                                                height=height, width=width,
                                                                                number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
+            triangle_images_data.append(triangle_images)
             triangle_data.append(triangle_features)
             final_labels.append(labels[i])
         except Exception as e:
             print(e)
 
-    return np.array(data), np.array(triangle_data), final_labels
+    return np.array(data), np.array(triangle_images_data), np.array(triangle_data), final_labels
 
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        './AUTSL/train', 'example/train',
-        n_videos_in_record=3, n_frames_per_video=16, file_suffix="*.mp4",
+        './AUTSL/sample_data/sign_1', 'example/train',
+        n_videos_in_record=17, n_frames_per_video=16, file_suffix="*.mp4",
         width=800, height=600, label_path='./AUTSL/train_labels.csv')
