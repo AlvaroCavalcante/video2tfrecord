@@ -405,7 +405,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     hands_1 = fill_data_and_convert_to_np(hands_1, n_frames, hand_height, hand_width)
     hands_2 = fill_data_and_convert_to_np(hands_2, n_frames, hand_height, hand_width)
     triangle_images = fill_data_and_convert_to_np(triangle_images, n_frames, height, width)
-    triangle_features_list = fill_data_and_convert_to_np(triangle_features_list, n_frames, 1, 12, False)
+    triangle_features_list = fill_data_and_convert_to_np(triangle_features_list, n_frames, 1, 13, False)
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, triangle_images
@@ -477,5 +477,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         './AUTSL/sample_data/sign_1', 'example/train',
-        n_videos_in_record=17, n_frames_per_video=16, file_suffix="*.mp4",
+        n_videos_in_record=17, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='./AUTSL/train_labels.csv')

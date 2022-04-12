@@ -15,7 +15,7 @@ except:
 
 
 def get_centroids(bouding_boxes, last_positions):
-    centroids = []
+    centroids = {}
     last_position_used = False
 
     for class_name in bouding_boxes:
@@ -32,7 +32,7 @@ def get_centroids(bouding_boxes, last_positions):
             xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
 
         centroid = (int((xmin+xmax)/2), int((ymin+ymax)/2))
-        centroids.append(centroid)
+        centroids[class_name] = centroid
 
     return centroids, last_position_used
 
@@ -49,11 +49,12 @@ def get_angle(opposite, adjacent_1, adjacent_2):
 
 
 def compute_triangle_features(centroids, img, draw_on_img):
-    euclidian_distances, img = compute_centroids_distances(
-        img, draw_on_img, centroids)
-
-    d1, d2, d3 = euclidian_distances[0], euclidian_distances[1], euclidian_distances[2]
     triangle_features = {}
+
+    if draw_on_img:
+        img = draw_triangle_on_img(centroids, img)
+
+    d1, d2, d3 = compute_centroids_distances(centroids)
 
     triangle_features.update(
         {'distance_1': d1, 'distance_2': d2, 'distance_3': d3})
@@ -63,6 +64,8 @@ def compute_triangle_features(centroids, img, draw_on_img):
     triangle_features['area'] = math.sqrt(   # Fórmula de Heron https://www.todamateria.com.br/area-do-triangulo/
         (triangle_features['semi_perimeter'] * (triangle_features['semi_perimeter'] - d1) * (
             triangle_features['semi_perimeter'] - d2) * (triangle_features['semi_perimeter'] - d3)))
+
+    triangle_features['height'] = 2 * triangle_features['area'] / d3
 
     triangle_features['ang_inter_a'] = get_angle(d3, d1, d2)
     triangle_features['ang_inter_b'] = get_angle(d1, d2, d3)
@@ -91,19 +94,29 @@ def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_
     return img, triangle_features, last_position_used
 
 
-def compute_centroids_distances(img, draw_on_img, centroids):
-    euclidian_distances = []
-    for centroid_comb in combinations(centroids, 2):
+def draw_triangle_on_img(centroids, img):
+    centroids_list = [centroids[class_name] for class_name in centroids]
+
+    for centroid_comb in combinations(centroids_list, 2):
         centroid_1 = centroid_comb[0]
         centroid_2 = centroid_comb[1]
-        if draw_on_img:
-            cv2.line(img, (centroid_1[0], centroid_1[1]),
+        cv2.line(img, (centroid_1[0], centroid_1[1]),
                      (centroid_2[0], centroid_2[1]), (0, 255, 0), thickness=5)
-        distance = math.sqrt(
-            (centroid_1[0]-centroid_2[0])**2+(centroid_1[1]-centroid_2[1])**2)
-        euclidian_distances.append(distance)
 
-    return euclidian_distances, img
+    return img
+
+
+def compute_centroids_distances(centroids):
+    d1 = math.sqrt(
+            (centroids['hand_1'][0]-centroids['face'][0])**2+(centroids['hand_1'][1]-centroids['face'][1])**2)
+
+    d2 = math.sqrt(
+            (centroids['hand_2'][0]-centroids['face'][0])**2+(centroids['hand_2'][1]-centroids['face'][1])**2)
+
+    d3 = math.sqrt(
+            (centroids['hand_1'][0]-centroids['hand_2'][0])**2+(centroids['hand_1'][1]-centroids['hand_2'][1])**2)
+
+    return d1, d2, d3
 
 
 def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, draw_on_image=False):
@@ -206,7 +219,7 @@ def detect_visual_cues_from_image(**kwargs):
         bouding_boxes, drawn_image, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2, last_position_used = get_image_segments(
-        input_image, bouding_boxes, kwargs.get('last_face_detection'), 
+        input_image, bouding_boxes, kwargs.get('last_face_detection'),
         kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
 
     return face_segment, hand_1, hand_2, triangle_features, drawn_image, bouding_boxes, last_position_used
