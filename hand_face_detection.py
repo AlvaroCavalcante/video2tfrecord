@@ -37,13 +37,13 @@ def get_centroids(bouding_boxes, last_positions):
     return centroids, last_position_used
 
 
-def get_angle(opposite, adjacent_1, adjacent_2):
+def get_normalized_angle(opposite, adjacent_1, adjacent_2):
     # lei dos cossenos: https://pt.khanacademy.org/math/trigonometry/trig-with-general-triangles/law-of-cosines/v/law-of-cosines-missing-angle
     cos_value = ((adjacent_1**2 + adjacent_2**2) -
                  opposite**2) / (2*(adjacent_1*adjacent_2))
     rad = math.acos(cos_value)
 
-    degrees = rad * 180 / math.pi
+    degrees = rad / math.pi # rad * 180 to remove normalization [0 - 1]
 
     return degrees
 
@@ -67,9 +67,9 @@ def compute_triangle_features(centroids, img, draw_on_img):
 
     triangle_features['height'] = 2 * triangle_features['area'] / d3
 
-    triangle_features['ang_inter_a'] = get_angle(d3, d1, d2)
-    triangle_features['ang_inter_b'] = get_angle(d1, d2, d3)
-    triangle_features['ang_inter_c'] = 180.0 - \
+    triangle_features['ang_inter_a'] = get_normalized_angle(d3, d1, d2)
+    triangle_features['ang_inter_b'] = get_normalized_angle(d1, d2, d3)
+    triangle_features['ang_inter_c'] = 1 - \
         (triangle_features['ang_inter_a'] + triangle_features['ang_inter_b'])
 
     # teorema dos Ângulos externos https://pt.wikipedia.org/wiki/Teorema_dos_%C3%A2ngulos_externos
