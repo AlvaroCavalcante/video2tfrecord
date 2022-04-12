@@ -1,13 +1,19 @@
+import os
+
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-
+import cv2
+import pandas as pd
 
 def read_tfrecord(example_proto):
     face = []
     hand_1 = []
     hand_2 = []
     triangle_img = []
+    video_name = []
+    triangle_stream_arr = []
+    triangle_data = []
 
     for image_count in range(16):
         face_stream = 'face/' + str(image_count)
@@ -22,6 +28,7 @@ def read_tfrecord(example_proto):
             hand_2_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_images_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_stream: tf.io.VarLenFeature(tf.float32),
+            'video_name': tf.io.FixedLenFeature([], tf.string),
             'height': tf.io.FixedLenFeature([], tf.int64),
             'width': tf.io.FixedLenFeature([], tf.int64),
             'depth': tf.io.FixedLenFeature([], tf.int64),
@@ -31,8 +38,9 @@ def read_tfrecord(example_proto):
         features = tf.io.parse_single_example(
             example_proto, features=feature_dict)
 
-        triangle_data = tf.reshape(features[triangle_stream].values, (1, 12))
-
+        triangle_data.append(tf.reshape(features[triangle_stream].values, (1, 13)))
+        triangle_stream_arr.append(triangle_stream)
+        
         width = tf.cast(features['width'], tf.int32)
         height = tf.cast(features['height'], tf.int32)
 
@@ -46,9 +54,10 @@ def read_tfrecord(example_proto):
         hand_2.append(hand_2_image)
         triangle_img.append(triangle_image)
 
+        video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, triangle_data, triangle_img, label
+    return [hand_1, hand_2], face, triangle_data, triangle_img, label, video_name, triangle_stream_arr
 
 
 def get_image(img, width, height):
@@ -68,8 +77,10 @@ def load_dataset(tf_record_path):
 
 def prepare_for_training(ds, shuffle_buffer_size=5):
     # ds.cache() # I can remove this to don't use cache or use cocodata.tfcache
-    ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
-        4).prefetch(tf.data.experimental.AUTOTUNE)
+    # ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
+        # 4).prefetch(tf.data.experimental.AUTOTUNE)
+
+    ds = ds.repeat().batch(17).prefetch(tf.data.experimental.AUTOTUNE)
     return ds
 
 
@@ -81,13 +92,13 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Documentos/video2tfrecord/example/train/*.tfrecords')
+    '/home/alvaro/Documentos/video2tfrecord/example/train/batch_1_of_1.tfrecords')
 row = 4
 col = 4
 #row = min(row,15//col)
 
 all_elements = load_data_tfrecord(tf_record_path).unbatch()
-augmented_element = all_elements.repeat().batch(5)
+augmented_element = all_elements.repeat().batch(17)
 
 
 def plot_figure(row, col, img_seq):
@@ -97,9 +108,25 @@ def plot_figure(row, col, img_seq):
         plt.imshow(np.array(img_seq[j]))
     plt.show()
 
-for (hand_seq, face_seq, triangle_data, triangle_image, label) in augmented_element:
-    plt.figure(figsize=(15, int(15*row/col)))
-    plot_figure(row, col, hand_seq[0][0])
-    plot_figure(row, col, hand_seq[0][1])
-    plot_figure(row, col, face_seq[0])
-    plot_figure(row, col, triangle_image[0])
+data = []
+
+for (hand_seq, face_seq, triangle_data, triangle_image, label, video_name, triangle_stream) in augmented_element:
+    for i in range(video_name.shape[0]):
+        for j, video in enumerate(video_name[i]):
+            video = video.numpy().decode('utf-8')
+            video_folder = '/home/alvaro/Documentos/video2tfrecord/results/sign_1/'+video
+            if not os.path.exists(video_folder):
+                os.mkdir(video_folder)
+
+            image_name = video_folder+'/'+video+'_'+str(j)+'.jpg'
+            cv2.imwrite(image_name, cv2.cvtColor(np.array(triangle_image[i][j]), cv2.COLOR_BGR2RGB))
+            data.append(list(map(lambda x: x.numpy(), triangle_data[i][j][0])) + [video, image_name])
+    break
+    # plt.figure(figsize=(15, int(15*row/col)))
+    # plot_figure(row, col, hand_seq[0][0])
+    # plot_figure(row, col, hand_seq[0][1])
+    # plot_figure(row, col, face_seq[0])
+    # plot_figure(row, col, triangle_image[0])
+
+df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height', 'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
+df.to_csv('/home/alvaro/Documentos/video2tfrecord/results/sign_1/df_res.csv', index=False)
