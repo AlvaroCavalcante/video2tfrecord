@@ -147,19 +147,19 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
         labels = get_data_label(batch, class_labels)
 
-        data, triangle_images_data, triangle_data, centroid_positions, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
+        data, triangle_images_data, videos, triangle_data, centroid_positions, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                                              n_frames_per_video=n_frames_per_video, labels=labels)
 
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
-        save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, centroid_positions, batch, destination_path, 'batch_',
+        save_numpy_to_tfrecords(data, triangle_images_data, videos, triangle_data, centroid_positions, batch, destination_path, 'batch_',
                                 n_videos_in_record, i + 1, total_batch_number,
                                 color_depth=color_depth, labels=labels)
 
 
-def save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, centroid_positions, filenames, destination_path, name, fragmentSize,
+def save_numpy_to_tfrecords(data, triangle_images_data, videos, triangle_data, centroid_positions, filenames, destination_path, name, fragmentSize,
                             current_batch_number, total_batch_number,
                             color_depth, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
@@ -195,6 +195,7 @@ def save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, centroid_
             hand_2_stream = 'hand_2/' + str(image_count)
             triangle_stream = 'triangle_data/' + str(image_count)
             triangle_images_stream = 'triangle_images_data/' + str(image_count)
+            video_stream = 'video/' + str(image_count)
 
             face_image = data[video_count, 0,
                               image_count, :, :, :].astype(color_depth)
@@ -203,15 +204,18 @@ def save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, centroid_
             hand_2_image = data[video_count, 2,
                                 image_count, :, :, :].astype(color_depth)
             triangle_img = triangle_images_data[video_count, image_count, :, :, :].astype(color_depth)
+            video_img = videos[video_count, image_count, :, :, :].astype(color_depth)
 
             face_raw = tf.image.encode_jpeg(
-                face_image).numpy()  # image.tostring()
+                face_image).numpy()
             hand_1_raw = tf.image.encode_jpeg(
-                hand_1_image).numpy()  # image.tostring()
+                hand_1_image).numpy()
             hand_2_raw = tf.image.encode_jpeg(
-                hand_2_image).numpy()  # image.tostring()
+                hand_2_image).numpy()
             triangle_img_raw = tf.image.encode_jpeg(
-                triangle_img).numpy()  # image.tostring()
+                triangle_img).numpy()
+            video_img_raw = tf.image.encode_jpeg(
+                video_img).numpy()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
@@ -220,6 +224,7 @@ def save_numpy_to_tfrecords(data, triangle_images_data, triangle_data, centroid_
             feature[hand_1_stream] = _bytes_feature(hand_1_raw)
             feature[hand_2_stream] = _bytes_feature(hand_2_raw)
             feature[triangle_images_stream] = _bytes_feature(triangle_img_raw)
+            feature[video_stream] = _bytes_feature(video_img_raw)
 
             feature['video_name'] = _bytes_feature(str.encode(file))
             feature['height'] = _int64_feature(height)
@@ -283,7 +288,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     n_frames = frame_count if take_all_frames else n_frames_per_video
 
-    # video = [] # used to store the whole video
+    video = []
     faces = []
     hands_1 = []
     hands_2 = []
@@ -364,7 +369,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     # TODO: why to resize each channel individually?
 
                     if not capture_restarted:
-                        # video.append(resize_frame(height, width, n_channels, frame))
+                        video.append(resize_frame(height, width, n_channels, frame))
                         triangle_features_list.append(
                             list(map(lambda key: triangle_features[key], triangle_features)))
                         faces.append(resize_frame(
@@ -380,7 +385,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        # video.insert(insert_index, resize_frame(height, width, n_channels, frame))
+                        video.insert(insert_index, resize_frame(height, width, n_channels, frame))
                         triangle_features_list.insert(insert_index, list(
                             map(lambda key: triangle_features[key], triangle_features)))
                         faces.insert(insert_index, resize_frame(
@@ -407,16 +412,16 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     print(str(i + 1) + ' of ' + str(
         number_of_videos) + ' videos within batch processed: ', file_path)
 
-    # video = np.array(video)
     faces = fill_data_and_convert_to_np(faces, n_frames, face_height, face_width)
     hands_1 = fill_data_and_convert_to_np(hands_1, n_frames, hand_height, hand_width)
     hands_2 = fill_data_and_convert_to_np(hands_2, n_frames, hand_height, hand_width)
+    video = fill_data_and_convert_to_np(video, n_frames, height, width)
     triangle_images = fill_data_and_convert_to_np(triangle_images, n_frames, height, width)
     triangle_features_list = fill_data_and_convert_to_np(triangle_features_list, n_frames, 1, 13, False)
     centroid_positions = fill_data_and_convert_to_np(centroid_positions, n_frames, 1, 6, False)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, centroid_positions, triangle_images
+    return faces, hands_1, hands_2, triangle_features_list, centroid_positions, video, triangle_images
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
@@ -467,14 +472,16 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
     final_labels = []
     triangle_images_data = []
     centroids_positions = []
+    videos = []
 
     for i, file in enumerate(filenames):
         try:
-            faces, hands_1, hands_2, triangle_features, centroids, triangle_images = video_file_to_ndarray(i=i, file_path=file,
+            faces, hands_1, hands_2, triangle_features, centroids, video, triangle_images = video_file_to_ndarray(i=i, file_path=file,
                                                                                n_frames_per_video=n_frames_per_video,
                                                                                height=height, width=width,
                                                                                number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
+            videos.append(video)
             triangle_images_data.append(triangle_images)
             triangle_data.append(triangle_features)
             centroids_positions.append(centroids)
@@ -482,7 +489,7 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
         except Exception as e:
             print(e)
 
-    return np.array(data), np.array(triangle_images_data), np.array(triangle_data), np.array(centroids_positions), final_labels
+    return np.array(data), np.array(triangle_images_data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels
 
 
 if __name__ == '__main__':

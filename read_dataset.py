@@ -15,11 +15,13 @@ def read_tfrecord(example_proto):
     triangle_stream_arr = []
     triangle_data = []
     centroids = []
+    video = []
 
     for image_count in range(16):
         face_stream = 'face/' + str(image_count)
         hand_1_stream = 'hand_1/' + str(image_count)
         hand_2_stream = 'hand_2/' + str(image_count)
+        video_stream = 'video/' + str(image_count)
         triangle_stream = 'triangle_data/' + str(image_count)
         triangle_images_stream = 'triangle_images_data/' + str(image_count)
 
@@ -27,6 +29,7 @@ def read_tfrecord(example_proto):
             face_stream: tf.io.FixedLenFeature([], tf.string),
             hand_1_stream: tf.io.FixedLenFeature([], tf.string),
             hand_2_stream: tf.io.FixedLenFeature([], tf.string),
+            video_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_images_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_stream: tf.io.VarLenFeature(tf.float32),
             'centroids': tf.io.VarLenFeature(tf.float32),
@@ -52,16 +55,18 @@ def read_tfrecord(example_proto):
         hand_1_image = get_image(features[hand_1_stream], width, height)
         hand_2_image = get_image(features[hand_2_stream], width, height)
         triangle_image = get_image(features[triangle_images_stream], 512, 512)
+        image = get_image(features[video_stream], 512, 512)
 
         face.append(face_image)
         hand_1.append(hand_1_image)
         hand_2.append(hand_2_image)
         triangle_img.append(triangle_image)
+        video.append(image)
 
         video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, triangle_data, triangle_img, centroids, label, video_name, triangle_stream_arr
+    return [hand_1, hand_2], face, triangle_data, triangle_img, centroids, video, label, video_name, triangle_stream_arr
 
 
 def get_image(img, width, height):
@@ -114,7 +119,7 @@ def plot_figure(row, col, img_seq):
 
 data = []
 
-for (hand_seq, face_seq, triangle_data, triangle_image, centroids, label, video_name, triangle_stream) in augmented_element:
+for (hand_seq, face_seq, triangle_data, triangle_image, centroids, video, label, video_name, triangle_stream) in augmented_element:
     for i in range(video_name.shape[0]):
         for j, video in enumerate(video_name[i]):
             video = video.numpy().decode('utf-8')
