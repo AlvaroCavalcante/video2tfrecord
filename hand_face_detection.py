@@ -1,5 +1,4 @@
 import math
-from itertools import combinations
 
 import tensorflow as tf
 import numpy as np
@@ -48,11 +47,8 @@ def get_normalized_angle(opposite, adjacent_1, adjacent_2):
     return degrees
 
 
-def compute_triangle_features(centroids, img, draw_on_img):
+def compute_triangle_features(centroids):
     triangle_features = {}
-
-    if draw_on_img:
-        img = draw_triangle_on_img(centroids, img)
 
     d1, d2, d3 = compute_centroids_distances(centroids)
 
@@ -80,37 +76,24 @@ def compute_triangle_features(centroids, img, draw_on_img):
     triangle_features['ang_ext_c'] = triangle_features['ang_inter_b'] + \
         triangle_features['ang_inter_a']
 
-    return triangle_features, img
+    return triangle_features
 
 
-def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_img=True):
+def compute_features_and_draw_lines(bouding_boxes, last_positions):
     centroids, last_position_used = get_centroids(bouding_boxes, last_positions)
 
     triangle_features = {}
     flatten_centroids = []
 
     if len(centroids) == 3:
-        triangle_features, img = compute_triangle_features(
-            centroids, img, draw_on_img)
+        triangle_features = compute_triangle_features(centroids)
 
     if len(centroids) == 3:
         class_sequence = ['hand_1', 'hand_2', 'face']
         for class_name in class_sequence:
             flatten_centroids.extend(list(centroids[class_name]))
 
-    return img, triangle_features, flatten_centroids, last_position_used
-
-
-def draw_triangle_on_img(centroids, img):
-    centroids_list = [centroids[class_name] for class_name in centroids]
-
-    for centroid_comb in combinations(centroids_list, 2):
-        centroid_1 = centroid_comb[0]
-        centroid_2 = centroid_comb[1]
-        cv2.line(img, (centroid_1[0], centroid_1[1]),
-                     (centroid_2[0], centroid_2[1]), (0, 255, 0), thickness=5)
-
-    return img
+    return triangle_features, flatten_centroids, last_position_used
 
 
 def compute_centroids_distances(centroids):
@@ -219,14 +202,14 @@ def infer_images(image, label_map_path, detect_fn, heigth, width):
 def detect_visual_cues_from_image(**kwargs):
     input_image = kwargs.get('image')
 
-    drawn_image, bouding_boxes = infer_images(input_image, kwargs.get(
+    _, bouding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'))
 
-    drawn_image, triangle_features, centroids, last_position_used = compute_features_and_draw_lines(
-        bouding_boxes, drawn_image, kwargs.get('last_positions'))
+    triangle_features, centroids, last_position_used = compute_features_and_draw_lines(
+        bouding_boxes, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2, last_position_used = get_image_segments(
         input_image, bouding_boxes, kwargs.get('last_face_detection'),
         kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
 
-    return face_segment, hand_1, hand_2, triangle_features, drawn_image, centroids, bouding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used
