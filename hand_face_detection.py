@@ -87,11 +87,18 @@ def compute_features_and_draw_lines(bouding_boxes, img, last_positions, draw_on_
     centroids, last_position_used = get_centroids(bouding_boxes, last_positions)
 
     triangle_features = {}
+    flatten_centroids = []
+
     if len(centroids) == 3:
         triangle_features, img = compute_triangle_features(
             centroids, img, draw_on_img)
 
-    return img, triangle_features, last_position_used
+    if len(centroids) == 3:
+        class_sequence = ['hand_1', 'hand_2', 'face']
+        for class_name in class_sequence:
+            flatten_centroids.extend(list(centroids[class_name]))
+
+    return img, triangle_features, flatten_centroids, last_position_used
 
 
 def draw_triangle_on_img(centroids, img):
@@ -215,11 +222,11 @@ def detect_visual_cues_from_image(**kwargs):
     drawn_image, bouding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'))
 
-    drawn_image, triangle_features, last_position_used = compute_features_and_draw_lines(
+    drawn_image, triangle_features, centroids, last_position_used = compute_features_and_draw_lines(
         bouding_boxes, drawn_image, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2, last_position_used = get_image_segments(
         input_image, bouding_boxes, kwargs.get('last_face_detection'),
         kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
 
-    return face_segment, hand_1, hand_2, triangle_features, drawn_image, bouding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, drawn_image, centroids, bouding_boxes, last_position_used
