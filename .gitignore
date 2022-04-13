@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+video2record/
+.vscode
+
 # Distribution / packaging
 .Python
 env/
@@ -99,3 +102,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+*.tfrecords
+
+/AUTSL
+
+/utils/models
+/results
