@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 
 from utils import label_map_util
+from generate_xml import AnnotationGenerator
 
 physical_devices = tf.config.list_physical_devices('GPU')
 try:
@@ -173,7 +174,7 @@ def get_image_segments(input_image, bouding_boxes, last_face_detection, last_han
     return face, hand_1, hand_2, last_position_used
 
 
-def infer_images(image, label_map_path, detect_fn, heigth, width):
+def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
     image_np = np.array(image)
     input_tensor = tf.convert_to_tensor(image_np)
     input_tensor = input_tensor[tf.newaxis, ...]
@@ -196,6 +197,10 @@ def infer_images(image, label_map_path, detect_fn, heigth, width):
         detections['detection_boxes'],
         heigth, width)
 
+    if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
+        generate_xml = AnnotationGenerator('/home/alvaro/Documentos/video2tfrecord/object_detection_db/')
+        generate_xml.generate_xml_annotation(bouding_boxes, width, heigth, file_name)
+
     return image_np_with_detections, bouding_boxes
 
 
@@ -203,7 +208,7 @@ def detect_visual_cues_from_image(**kwargs):
     input_image = kwargs.get('image')
 
     _, bouding_boxes = infer_images(input_image, kwargs.get(
-        'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'))
+        'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
     triangle_features, centroids, last_position_used = compute_features_and_draw_lines(
         bouding_boxes, kwargs.get('last_positions'))

@@ -345,6 +345,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     continue
 
                 else:
+                    file_name = file_path.split('/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
+                    img_path = '/home/alvaro/Documentos/video2tfrecord/object_detection_db/' + file_name
+
                     face, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='utils/label_map.pbtxt',
@@ -354,11 +357,14 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         last_face_detection=last_face_detection,
                         last_hand_1_detection=last_hand_1_detection,
                         last_hand_2_detection=last_hand_2_detection,
-                        last_positions=last_positions
+                        last_positions=last_positions,
+                        file_name=file_name
                     )
 
                     if not triangle_features:
                         continue
+
+                    cv2.imwrite(img_path, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
                     # iterate over channels
                     # TODO: why to resize each channel individually?
