@@ -21,7 +21,7 @@ from tensorflow.python.platform import gfile
 import hand_face_detection
 
 MODEL = tf.saved_model.load(
-    './utils/models/centernet_restnet50/saved_model')
+    'src/utils/models/centernet_restnet50/saved_model')
 
 
 def _int64_feature(value):
@@ -350,7 +350,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     face, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
-                        label_map_path='utils/label_map.pbtxt',
+                        label_map_path='src/utils/label_map.pbtxt',
                         detect_fn=MODEL,
                         height=height,
                         width=width,

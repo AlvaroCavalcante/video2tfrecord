@@ -107,6 +107,6 @@ ENV/
 
 /AUTSL
 
-/utils/models
+/src/utils/models
 /results
 /object_detection_db
