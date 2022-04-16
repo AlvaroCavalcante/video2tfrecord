@@ -109,3 +109,4 @@ ENV/
 
 /utils/models
 /results
+/object_detection_db
