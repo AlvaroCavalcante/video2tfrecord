@@ -30,6 +30,9 @@ class AnnotationGenerator(object):
                 ET.SubElement(bndBox, 'ymax').text = str(box['ymax'])
                 count += 1
 
+            if 'jpg' in file_name.split('.') or 'png' in file_name.split('.') or 'jpeg' in file_name.split('.'):
+                file_name = file_name.split('.')[0]
+
             arquivo = ET.ElementTree(annotation)
             arquivo.write(self.xml_path + file_name + '.xml')
         except Exception as e:
