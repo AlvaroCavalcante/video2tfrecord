@@ -200,6 +200,7 @@ def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
     if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
         generate_xml = AnnotationGenerator('/home/alvaro/Documentos/video2tfrecord/object_detection_db/')
         generate_xml.generate_xml_annotation(bouding_boxes, width, heigth, file_name)
+        cv2.imwrite('/home/alvaro/Documentos/video2tfrecord/object_detection_db/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
     return image_np_with_detections, bouding_boxes
 

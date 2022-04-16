@@ -364,8 +364,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     if not triangle_features:
                         continue
 
-                    cv2.imwrite(img_path, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
                     # iterate over channels
                     # TODO: why to resize each channel individually?
 
