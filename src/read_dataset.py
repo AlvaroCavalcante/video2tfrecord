@@ -100,10 +100,9 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Documentos/video2tfrecord/example/train/batch_1_of_9.tfrecords')
+    '/home/alvaro/Documentos/video2tfrecord/example/train/batch_1_of_1_all_sign.tfrecords')
 row = 4
 col = 4
-#row = min(row,15//col)
 
 all_elements = load_data_tfrecord(tf_record_path).unbatch()
 augmented_element = all_elements.repeat().batch(17)
@@ -130,34 +129,37 @@ def plot_figure(row, col, img_seq):
     plt.show()
 
 
+plot_images = True
 data = []
 
 for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in augmented_element:
-    for i in range(video_name_list.shape[0]):
-        for j, video_name in enumerate(video_name_list[i]):
-            video_name = video_name.numpy().decode('utf-8')
-            video_img = video_imgs[i][j]
-            img_centroids = centroids[i][j]
-            triangle_img = draw_triangle_on_img(img_centroids, np.array(video_img))
+    if not plot_images:
+        for i in range(video_name_list.shape[0]):
+            for j, video_name in enumerate(video_name_list[i]):
+                video_name = video_name.numpy().decode('utf-8')
+                video_img = video_imgs[i][j]
+                img_centroids = centroids[i][j]
+                triangle_img = draw_triangle_on_img(img_centroids, np.array(video_img))
 
-            video_folder = '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/'+video_name
-            if not os.path.exists(video_folder):
-                os.mkdir(video_folder)
+                video_folder = '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/'+video_name
+                if not os.path.exists(video_folder):
+                    os.mkdir(video_folder)
 
-            image_name = video_folder+'/'+video_name+'_'+str(j)+'.jpg'
-            
-            cv2.imwrite(image_name, cv2.cvtColor(triangle_img, cv2.COLOR_BGR2RGB))
-            
-            data.append(list(map(lambda x: x.numpy(),
-                        triangle_data[i][j][0])) + [video_name, image_name])
-    break
-    # plt.figure(figsize=(15, int(15*row/col)))
-    # plot_figure(row, col, hand_seq[0][0])
-    # plot_figure(row, col, hand_seq[0][1])
-    # plot_figure(row, col, face_seq[0])
-    # plot_figure(row, col, triangle_image[0])
+                image_name = video_folder+'/'+video_name+'_'+str(j)+'.jpg'
+                
+                cv2.imwrite(image_name, cv2.cvtColor(triangle_img, cv2.COLOR_BGR2RGB))
+                
+                data.append(list(map(lambda x: x.numpy(),
+                            triangle_data[i][j][0])) + [video_name, image_name])
 
-df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height',
-                  'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
-df.to_csv(
-    '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/df_res.csv', index=False)
+        df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height',
+                        'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
+        df.to_csv(
+            '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/df_res.csv', index=False)
+
+    else:
+        plt.figure(figsize=(15, int(15*row/col)))
+        plot_figure(row, col, hand_seq[0][0])
+        plot_figure(row, col, hand_seq[0][1])
+        plot_figure(row, col, face_seq[0])
+        plot_figure(row, col, video_imgs[0])
