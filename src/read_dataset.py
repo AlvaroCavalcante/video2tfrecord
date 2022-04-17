@@ -83,12 +83,12 @@ def load_dataset(tf_record_path):
     return parsed_dataset
 
 
-def prepare_for_training(ds, shuffle_buffer_size=5):
+def prepare_for_training(ds, shuffle_buffer_size=20):
     # ds.cache() # I can remove this to don't use cache or use cocodata.tfcache
-    # ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
-    # 4).prefetch(tf.data.experimental.AUTOTUNE)
 
-    ds = ds.repeat().batch(17).prefetch(tf.data.experimental.AUTOTUNE)
+    ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
+        25).prefetch(tf.data.experimental.AUTOTUNE)
+
     return ds
 
 
@@ -105,7 +105,7 @@ row = 4
 col = 4
 
 all_elements = load_data_tfrecord(tf_record_path).unbatch()
-augmented_element = all_elements.repeat().batch(17)
+augmented_element = all_elements.repeat().batch(25)
 
 
 def draw_triangle_on_img(centroids, img):
