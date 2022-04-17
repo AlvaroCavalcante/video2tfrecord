@@ -104,8 +104,7 @@ tf_record_path = tf.io.gfile.glob(
 row = 4
 col = 4
 
-all_elements = load_data_tfrecord(tf_record_path).unbatch()
-augmented_element = all_elements.repeat().batch(25)
+dataset = load_data_tfrecord(tf_record_path)
 
 
 def draw_triangle_on_img(centroids, img):
@@ -132,7 +131,7 @@ def plot_figure(row, col, img_seq):
 plot_images = True
 data = []
 
-for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in augmented_element:
+for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in dataset:
     for i in range(video_name_list.shape[0]):
         if plot_images:
             plt.figure(figsize=(15, int(15*row/col)))
