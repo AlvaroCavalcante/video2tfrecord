@@ -100,7 +100,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Documentos/video2tfrecord/example/train/batch_1_of_1_all_sign.tfrecords')
+    '/home/alvaro/Documentos/video2tfrecord/example/train/batch_1_of_2.tfrecords')
 row = 4
 col = 4
 
@@ -133,8 +133,14 @@ plot_images = True
 data = []
 
 for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in augmented_element:
-    if not plot_images:
-        for i in range(video_name_list.shape[0]):
+    for i in range(video_name_list.shape[0]):
+        if plot_images:
+            plt.figure(figsize=(15, int(15*row/col)))
+            plot_figure(row, col, hand_seq[i][0])
+            plot_figure(row, col, hand_seq[i][1])
+            plot_figure(row, col, face_seq[i])
+            plot_figure(row, col, video_imgs[i])
+        else:
             for j, video_name in enumerate(video_name_list[i]):
                 video_name = video_name.numpy().decode('utf-8')
                 video_img = video_imgs[i][j]
@@ -152,14 +158,7 @@ for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name
                 data.append(list(map(lambda x: x.numpy(),
                             triangle_data[i][j][0])) + [video_name, image_name])
 
-        df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height',
-                        'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
-        df.to_csv(
-            '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/df_res.csv', index=False)
-
-    else:
-        plt.figure(figsize=(15, int(15*row/col)))
-        plot_figure(row, col, hand_seq[0][0])
-        plot_figure(row, col, hand_seq[0][1])
-        plot_figure(row, col, face_seq[0])
-        plot_figure(row, col, video_imgs[0])
+                df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height',
+                                'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
+                df.to_csv(
+                    '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/df_res.csv', index=False)
