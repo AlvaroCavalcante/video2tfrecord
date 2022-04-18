@@ -10,6 +10,7 @@ import os
 import time
 import math
 import bisect
+from datetime import datetime
 
 import cv2
 import numpy as np
@@ -146,19 +147,22 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
         labels = get_data_label(batch, class_labels)
 
-        data, videos, triangle_data, centroid_positions, labels = convert_video_to_numpy(filenames=batch, width=width, height=height,
-                                                             n_frames_per_video=n_frames_per_video, labels=labels)
+        data, videos, triangle_data, centroid_positions, labels, error_videos = convert_video_to_numpy(filenames=batch, width=width, height=height,
+                                                                                                       n_frames_per_video=n_frames_per_video, labels=labels)
 
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
-        save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path, 'batch_',
+        save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
-        for bt in batch:
-            checkpoint_df = checkpoint_df.append({'video_name': bt}, ignore_index=True)
+        for bt_file in batch:
+            if bt_file not in error_videos:
+                checkpoint_df = checkpoint_df.append(
+                    {'video_name': bt_file}, ignore_index=True)
         checkpoint_df.to_csv('src/utils/checkpoint.csv', index=False)
+
 
 def get_filenames(source_path, file_suffix, video_filenames):
     if video_filenames is not None:
@@ -171,13 +175,15 @@ def get_filenames(source_path, file_suffix, video_filenames):
     print('Total videos found: ' + str(len(filenames)))
     return filenames
 
+
 def remove_from_checkpoint(checkpoint_df, filenames):
     for file in list(checkpoint_df['video_name'].values):
         if file in filenames:
             filenames.remove(file)
     return filenames
 
-def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, name, fragment_size,
+
+def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, fragment_size,
                             current_batch_number, total_batch_number, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragment_size.
 
@@ -204,7 +210,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
 
         if video_count % fragment_size == 0:
             writer = get_tfrecord_writer(
-                destination_path, name, current_batch_number, total_batch_number, writer)
+                destination_path, current_batch_number, total_batch_number, writer)
 
         for image_count in range(num_images):
             face_stream = 'face/' + str(image_count)
@@ -220,7 +226,8 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
                                 image_count, :, :, :].astype('uint8')
             hand_2_image = data[video_count, 2,
                                 image_count, :, :, :].astype('uint8')
-            video_img = videos[video_count, image_count, :, :, :].astype('uint8')
+            video_img = videos[video_count,
+                               image_count, :, :, :].astype('uint8')
 
             face_raw = tf.image.encode_jpeg(
                 face_image).numpy()
@@ -245,7 +252,8 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
             feature['depth'] = _int64_feature(num_channels)
             feature['label'] = _int64_feature(labels[video_count])
 
-            feature[centroid_stream] = _float_list_feature(centroid_positions[video_count][image_count])
+            feature[centroid_stream] = _float_list_feature(
+                centroid_positions[video_count][image_count])
 
             feature[triangle_stream] = _float_list_feature(
                 triangle_data[video_count][image_count])
@@ -256,12 +264,12 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
         writer.close()
 
 
-def get_tfrecord_writer(destination_path, name, current_batch_number, total_batch_number, writer):
+def get_tfrecord_writer(destination_path, current_batch_number, total_batch_number, writer):
     if writer is not None:
         writer.close()
     filename = os.path.join(destination_path,
-                            name + str(current_batch_number) + '_of_' + str(
-                                total_batch_number) + '.tfrecords')
+                            'batch_' + str(current_batch_number) + '_of_' + str(
+                                total_batch_number) + '_' + datetime.now().strftime('%Y-%m-%d-%H-%M-%s') + '.tfrecords')
     print('Writing', filename)
     if tf.__version__.split('.')[0] == '2':
         writer = tf.io.TFRecordWriter(filename)
@@ -362,7 +370,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     continue
 
                 else:
-                    file_name = file_path.split('/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
+                    file_name = file_path.split(
+                        '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
                     face, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
@@ -384,7 +393,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     # TODO: why to resize each channel individually?
 
                     if not capture_restarted:
-                        video.append(resize_frame(height, width, n_channels, frame))
+                        video.append(resize_frame(
+                            height, width, n_channels, frame))
                         triangle_features_list.append(
                             list(map(lambda key: triangle_features[key], triangle_features)))
                         faces.append(resize_frame(
@@ -399,7 +409,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        video.insert(insert_index, resize_frame(height, width, n_channels, frame))
+                        video.insert(insert_index, resize_frame(
+                            height, width, n_channels, frame))
                         triangle_features_list.insert(insert_index, list(
                             map(lambda key: triangle_features[key], triangle_features)))
                         faces.insert(insert_index, resize_frame(
@@ -425,12 +436,17 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     print(str(i + 1) + ' of ' + str(
         number_of_videos) + ' videos within batch processed: ', file_path)
 
-    faces = fill_data_and_convert_to_np(faces, n_frames, face_height, face_width)
-    hands_1 = fill_data_and_convert_to_np(hands_1, n_frames, hand_height, hand_width)
-    hands_2 = fill_data_and_convert_to_np(hands_2, n_frames, hand_height, hand_width)
+    faces = fill_data_and_convert_to_np(
+        faces, n_frames, face_height, face_width)
+    hands_1 = fill_data_and_convert_to_np(
+        hands_1, n_frames, hand_height, hand_width)
+    hands_2 = fill_data_and_convert_to_np(
+        hands_2, n_frames, hand_height, hand_width)
     video = fill_data_and_convert_to_np(video, n_frames, height, width)
-    triangle_features_list = fill_data_and_convert_to_np(triangle_features_list, n_frames, 1, 13, False)
-    centroid_positions = fill_data_and_convert_to_np(centroid_positions, n_frames, 1, 6, False)
+    triangle_features_list = fill_data_and_convert_to_np(
+        triangle_features_list, n_frames, 1, 13, False)
+    centroid_positions = fill_data_and_convert_to_np(
+        centroid_positions, n_frames, 1, 6, False)
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, centroid_positions, video
@@ -441,9 +457,10 @@ def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
         if is_image:
             data.append(np.zeros((height, width, 3), dtype='uint8'))
         else:
-            data.append([0]* width)
+            data.append([0] * width)
 
     return np.array(data)
+
 
 def resize_frame(height, width, n_channels, frame):
     image = np.zeros((height, width, n_channels), dtype='uint8')
@@ -484,26 +501,29 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
     final_labels = []
     centroids_positions = []
     videos = []
+    error_videos = []
 
     for i, file in enumerate(filenames):
         try:
             faces, hands_1, hands_2, triangle_features, centroids, video = video_file_to_ndarray(i=i, file_path=file,
-                                                                               n_frames_per_video=n_frames_per_video,
-                                                                               height=height, width=width,
-                                                                               number_of_videos=number_of_videos)
+                                                                                                 n_frames_per_video=n_frames_per_video,
+                                                                                                 height=height, width=width,
+                                                                                                 number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
             videos.append(video)
             triangle_data.append(triangle_features)
             centroids_positions.append(centroids)
             final_labels.append(labels[i])
         except Exception as e:
+            print('Error to process video {}'.format(file))
             print(e)
+            error_videos.append(file)
 
-    return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels
+    return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels, error_videos
 
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        './AUTSL/sample_data/all_signs', 'example/train',
-        n_videos_in_record=2, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='./AUTSL/train_labels.csv', reset_checkpoint=False)
+        './AUTSL/sample_data/error', 'example/train',
+        n_videos_in_record=6, n_frames_per_video=16, file_suffix='*.mp4',
+        width=512, height=512, label_path='./AUTSL/train_labels.csv', reset_checkpoint=True)
