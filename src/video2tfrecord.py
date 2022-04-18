@@ -96,7 +96,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
                                n_videos_in_record=10, n_frames_per_video='all',
                                file_suffix='*.mp4',
                                width=1280, height=720,
-                               color_depth='uint8', video_filenames=None, label_path=None):
+                               video_filenames=None, label_path=None):
     """Starts the process of converting video files to tfrecord files.
 
     Args:
@@ -127,14 +127,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     if type(n_frames_per_video) is str:
         assert n_frames_per_video == "all"
 
-    if video_filenames is not None:
-        filenames = video_filenames
-    else:
-        filenames = gfile.Glob(os.path.join(source_path, file_suffix))
-    if not filenames:
-        raise RuntimeError('No data files found.')
-
-    print('Total videos found: ' + str(len(filenames)))
+    filenames = get_filenames(source_path, file_suffix, video_filenames)
 
     filenames_split = list(get_chunks(filenames, n_videos_in_record))
     class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
@@ -155,21 +148,30 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
         save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path, 'batch_',
-                                n_videos_in_record, i + 1, total_batch_number,
-                                color_depth=color_depth, labels=labels)
+                                n_videos_in_record, i + 1, total_batch_number, labels=labels)
+
+def get_filenames(source_path, file_suffix, video_filenames):
+    if video_filenames is not None:
+        filenames = video_filenames
+    else:
+        filenames = gfile.Glob(os.path.join(source_path, file_suffix))
+    if not filenames:
+        raise RuntimeError('No data files found.')
+
+    print('Total videos found: ' + str(len(filenames)))
+    return filenames
 
 
-def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, name, fragmentSize,
-                            current_batch_number, total_batch_number,
-                            color_depth, labels):
-    """Converts an entire dataset into x tfrecords where x=videos/fragmentSize.
+def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, name, fragment_size,
+                            current_batch_number, total_batch_number, labels):
+    """Converts an entire dataset into x tfrecords where x=videos/fragment_size.
 
     Args:
       data: ndarray(uint8) of shape (v,i,h,w,c) with v=number of videos,
       i=number of images, c=number of image channels, h=image height, w=image
       width
       name: filename; data samples type (train|valid|test)
-      fragmentSize: specifies how many videos are stored in one tfrecords file
+      fragment_size: specifies how many videos are stored in one tfrecords file
       current_batch_number: indicates the current batch index (function call within loop)
       total_batch_number: indicates the total number of batches
     """
@@ -185,7 +187,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
 
     for video_count in range((num_videos)):
 
-        if video_count % fragmentSize == 0:
+        if video_count % fragment_size == 0:
             writer = get_tfrecord_writer(
                 destination_path, name, current_batch_number, total_batch_number, writer)
 
@@ -198,12 +200,12 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
             centroid_stream = 'centroid/' + str(image_count)
 
             face_image = data[video_count, 0,
-                              image_count, :, :, :].astype(color_depth)
+                              image_count, :, :, :].astype('uint8')
             hand_1_image = data[video_count, 1,
-                                image_count, :, :, :].astype(color_depth)
+                                image_count, :, :, :].astype('uint8')
             hand_2_image = data[video_count, 2,
-                                image_count, :, :, :].astype(color_depth)
-            video_img = videos[video_count, image_count, :, :, :].astype(color_depth)
+                                image_count, :, :, :].astype('uint8')
+            video_img = videos[video_count, image_count, :, :, :].astype('uint8')
 
             face_raw = tf.image.encode_jpeg(
                 face_image).numpy()
@@ -346,7 +348,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                 else:
                     file_name = file_path.split('/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
-                    img_path = '/home/alvaro/Documentos/video2tfrecord/object_detection_db/' + file_name
 
                     face, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
@@ -489,5 +490,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         './AUTSL/sample_data/all_signs', 'example/train',
-        n_videos_in_record=25, n_frames_per_video=16, file_suffix='*.mp4',
+        n_videos_in_record=1, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='./AUTSL/train_labels.csv')
