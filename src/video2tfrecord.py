@@ -96,7 +96,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
                                n_videos_in_record=10, n_frames_per_video='all',
                                file_suffix='*.mp4',
                                width=1280, height=720,
-                               video_filenames=None, label_path=None):
+                               video_filenames=None, label_path=None, reset_checkpoint=False):
     """Starts the process of converting video files to tfrecord files.
 
     Args:
@@ -128,12 +128,18 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         assert n_frames_per_video == "all"
 
     filenames = get_filenames(source_path, file_suffix, video_filenames)
-
-    filenames_split = list(get_chunks(filenames, n_videos_in_record))
     class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
     total_batch_number = 1 if n_videos_in_record > len(
         filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
+
+    if reset_checkpoint:
+        checkpoint_df = pd.DataFrame(columns=['video_name'])
+    else:
+        checkpoint_df = pd.read_csv('src/utils/checkpoint.csv', header=0)
+        filenames = remove_from_checkpoint(checkpoint_df, filenames)
+
+    filenames_split = list(get_chunks(filenames, n_videos_in_record))
 
     for i, batch in enumerate(filenames_split):
         data = None
@@ -150,6 +156,10 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path, 'batch_',
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
+        for bt in batch:
+            checkpoint_df = checkpoint_df.append({'video_name': bt}, ignore_index=True)
+        checkpoint_df.to_csv('src/utils/checkpoint.csv', index=False)
+
 def get_filenames(source_path, file_suffix, video_filenames):
     if video_filenames is not None:
         filenames = video_filenames
@@ -161,6 +171,11 @@ def get_filenames(source_path, file_suffix, video_filenames):
     print('Total videos found: ' + str(len(filenames)))
     return filenames
 
+def remove_from_checkpoint(checkpoint_df, filenames):
+    for file in list(checkpoint_df['video_name'].values):
+        if file in filenames:
+            filenames.remove(file)
+    return filenames
 
 def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, name, fragment_size,
                             current_batch_number, total_batch_number, labels):
@@ -490,5 +505,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         './AUTSL/sample_data/all_signs', 'example/train',
-        n_videos_in_record=1, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='./AUTSL/train_labels.csv')
+        n_videos_in_record=2, n_frames_per_video=16, file_suffix='*.mp4',
+        width=512, height=512, label_path='./AUTSL/train_labels.csv', reset_checkpoint=False)
