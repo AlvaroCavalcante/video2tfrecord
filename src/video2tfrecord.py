@@ -281,20 +281,20 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
     stop = False
 
-    if capture_restarted or steps <= 0:
-        stop = True
-        return stop, cap, steps, capture_restarted
-
     if not take_all_frames:
         # repeat with smaller step size
         steps -= 1
+
+    if capture_restarted or steps <= 0:
+        stop = True
+        return stop, cap, steps, capture_restarted
 
     capture_restarted = True
     print('reducing step size due to error for video: ', file_path)
     cap.release()
     cap, _ = get_video_capture_and_frame_count(file_path)
     # wait for image retrieval to be ready
-    time.sleep(2)
+    time.sleep(1)
 
     return stop, cap, steps, capture_restarted
 
@@ -332,9 +332,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
         steps = frame_count if take_all_frames else int(
             math.floor((frame_count - frames_to_skip) / n_frames_per_video))
-
-        assert not (frame_count < 1 or steps < 1), str(
-            file_path) + ' does not have enough frames. Skipping video.'
 
         if frames_counter > 0:
             stop, cap, steps, capture_restarted = repeat_image_retrieval(
