@@ -39,46 +39,53 @@ def get_centroids(bouding_boxes, last_positions):
 
 def get_normalized_angle(opposite, adjacent_1, adjacent_2):
     # lei dos cossenos: https://pt.khanacademy.org/math/trigonometry/trig-with-general-triangles/law-of-cosines/v/law-of-cosines-missing-angle
-    cos_value = ((adjacent_1**2 + adjacent_2**2) -
-                 opposite**2) / (2*(adjacent_1*adjacent_2))
-    rad = math.acos(cos_value)
+    try:
+        cos_value = ((adjacent_1**2 + adjacent_2**2) -
+                    opposite**2) / (2*(adjacent_1*adjacent_2) + 1e-10)
+        rad = math.acos(cos_value)
 
-    degrees = rad / math.pi # rad * 180 to remove normalization [0 - 1]
+        degrees = rad / math.pi # rad * 180 to remove normalization [0 - 1]
 
-    return degrees
+        return degrees
+    except Exception as e:
+        print('Error to calculate normalized angle')
+        print(e)
 
 
 def compute_triangle_features(centroids):
-    triangle_features = {}
+    try:
+        triangle_features = {}
 
-    d1, d2, d3 = compute_centroids_distances(centroids)
+        d1, d2, d3 = compute_centroids_distances(centroids)
 
-    triangle_features.update(
-        {'distance_1': d1, 'distance_2': d2, 'distance_3': d3})
+        triangle_features.update(
+            {'distance_1': d1, 'distance_2': d2, 'distance_3': d3})
 
-    triangle_features['perimeter'] = d1 + d2 + d3
-    triangle_features['semi_perimeter'] = triangle_features['perimeter'] / 2
-    triangle_features['area'] = math.sqrt(   # Fórmula de Heron https://www.todamateria.com.br/area-do-triangulo/
-        (triangle_features['semi_perimeter'] * (triangle_features['semi_perimeter'] - d1) * (
-            triangle_features['semi_perimeter'] - d2) * (triangle_features['semi_perimeter'] - d3)))
+        triangle_features['perimeter'] = d1 + d2 + d3
+        triangle_features['semi_perimeter'] = triangle_features['perimeter'] / 2
+        triangle_features['area'] = math.sqrt(   # Fórmula de Heron https://www.todamateria.com.br/area-do-triangulo/
+            (triangle_features['semi_perimeter'] * (triangle_features['semi_perimeter'] - d1) * (
+                triangle_features['semi_perimeter'] - d2) * (triangle_features['semi_perimeter'] - d3)))
 
-    triangle_features['height'] = 2 * triangle_features['area'] / d3
+        triangle_features['height'] = 2 * triangle_features['area'] / (d3 + 1e-10) # avoid 0 division
 
-    triangle_features['ang_inter_a'] = get_normalized_angle(d3, d1, d2)
-    triangle_features['ang_inter_b'] = get_normalized_angle(d1, d2, d3)
-    triangle_features['ang_inter_c'] = 1 - \
-        (triangle_features['ang_inter_a'] + triangle_features['ang_inter_b'])
+        triangle_features['ang_inter_a'] = get_normalized_angle(d3, d1, d2)
+        triangle_features['ang_inter_b'] = get_normalized_angle(d1, d2, d3)
+        triangle_features['ang_inter_c'] = 1 - \
+            (triangle_features['ang_inter_a'] + triangle_features['ang_inter_b'])
 
-    # teorema dos Ângulos externos https://pt.wikipedia.org/wiki/Teorema_dos_%C3%A2ngulos_externos
-    triangle_features['ang_ext_a'] = triangle_features['ang_inter_b'] + \
-        triangle_features['ang_inter_c']
-    triangle_features['ang_ext_b'] = triangle_features['ang_inter_a'] + \
-        triangle_features['ang_inter_c']
-    triangle_features['ang_ext_c'] = triangle_features['ang_inter_b'] + \
-        triangle_features['ang_inter_a']
+        # teorema dos Ângulos externos https://pt.wikipedia.org/wiki/Teorema_dos_%C3%A2ngulos_externos
+        triangle_features['ang_ext_a'] = triangle_features['ang_inter_b'] + \
+            triangle_features['ang_inter_c']
+        triangle_features['ang_ext_b'] = triangle_features['ang_inter_a'] + \
+            triangle_features['ang_inter_c']
+        triangle_features['ang_ext_c'] = triangle_features['ang_inter_b'] + \
+            triangle_features['ang_inter_a']
 
-    return triangle_features
-
+        return triangle_features
+    except Exception as e:
+        print('Error to calculate triangle features')
+        print(e)
 
 def compute_features_and_draw_lines(bouding_boxes, last_positions):
     centroids, last_position_used = get_centroids(bouding_boxes, last_positions)
@@ -98,16 +105,20 @@ def compute_features_and_draw_lines(bouding_boxes, last_positions):
 
 
 def compute_centroids_distances(centroids):
-    d1 = math.sqrt(
-            (centroids['hand_1'][0]-centroids['face'][0])**2+(centroids['hand_1'][1]-centroids['face'][1])**2)
+    try:
+        d1 = math.sqrt(
+                (centroids['hand_1'][0]-centroids['face'][0])**2+(centroids['hand_1'][1]-centroids['face'][1])**2)
 
-    d2 = math.sqrt(
-            (centroids['hand_2'][0]-centroids['face'][0])**2+(centroids['hand_2'][1]-centroids['face'][1])**2)
+        d2 = math.sqrt(
+                (centroids['hand_2'][0]-centroids['face'][0])**2+(centroids['hand_2'][1]-centroids['face'][1])**2)
 
-    d3 = math.sqrt(
-            (centroids['hand_1'][0]-centroids['hand_2'][0])**2+(centroids['hand_1'][1]-centroids['hand_2'][1])**2)
+        d3 = math.sqrt(
+                (centroids['hand_1'][0]-centroids['hand_2'][0])**2+(centroids['hand_1'][1]-centroids['hand_2'][1])**2)
 
-    return d1, d2, d3
+        return d1, d2, d3
+    except Exception as e:
+        print('Error to calculate centroids distances')
+        print(e)
 
 
 def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, draw_on_image=False):
