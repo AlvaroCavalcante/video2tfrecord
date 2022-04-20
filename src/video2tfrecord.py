@@ -131,14 +131,14 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     filenames = get_filenames(source_path, file_suffix, video_filenames)
     class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
-    total_batch_number = 1 if n_videos_in_record > len(
-        filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
-
     if reset_checkpoint:
         checkpoint_df = pd.DataFrame(columns=['video_name'])
     else:
         checkpoint_df = pd.read_csv('src/utils/checkpoint.csv', header=0)
         filenames = remove_from_checkpoint(checkpoint_df, filenames)
+
+    total_batch_number = 1 if n_videos_in_record > len(
+        filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
 
     filenames_split = list(get_chunks(filenames, n_videos_in_record))
 
