@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 import pandas as pd
 
+from data_augmentation import transform_batch
 
 def read_tfrecord(example_proto):
     face = []
@@ -57,6 +58,8 @@ def read_tfrecord(example_proto):
         hand_1_image = get_image(features[hand_1_stream], width, height)
         hand_2_image = get_image(features[hand_2_stream], width, height)
         image = get_image(features[video_stream], 512, 512)
+
+        face_image, hand_1_image, hand_2_image = transform_batch(face_image, hand_1_image, hand_2_image, 80)
 
         face.append(face_image)
         hand_1.append(hand_1_image)
