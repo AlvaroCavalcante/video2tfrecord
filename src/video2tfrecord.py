@@ -143,6 +143,8 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     filenames_split = list(get_chunks(filenames, n_videos_in_record))
 
     for i, batch in enumerate(filenames_split):
+        print('Processing batch {}'.format(str(i)))
+
         data = None
 
         labels = get_data_label(batch, class_labels)
@@ -197,6 +199,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
       total_batch_number: indicates the total number of batches
     """
 
+    print('Starting TF Record Write')
     num_videos = data.shape[0]
     num_images = data.shape[2]
     num_channels = data.shape[5]
@@ -294,7 +297,7 @@ def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_resta
     cap.release()
     cap, _ = get_video_capture_and_frame_count(file_path)
     # wait for image retrieval to be ready
-    time.sleep(1)
+    time.sleep(.5)
 
     return stop, cap, steps, capture_restarted
 
@@ -521,6 +524,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        './AUTSL/train', 'example/train',
-        n_videos_in_record=150, n_frames_per_video=16, file_suffix='*.mp4',
+        './AUTSL/train', 'example/data',
+        n_videos_in_record=120, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='./AUTSL/train_labels.csv', reset_checkpoint=False)
