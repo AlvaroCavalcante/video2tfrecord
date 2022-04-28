@@ -95,9 +95,12 @@ def prepare_for_training(ds, shuffle_buffer_size=20):
 
     return ds
 
+def filter_func(hands, face, triangle_data, centroids, video, label, video_name, triangle_stream_arr):
+    return tf.math.greater(label, 206)
 
 def load_data_tfrecord(tfrecord_path):
     dataset = load_dataset(tfrecord_path)
+    dataset = dataset.filter(filter_func)
 
     dataset = prepare_for_training(dataset)
     return dataset
