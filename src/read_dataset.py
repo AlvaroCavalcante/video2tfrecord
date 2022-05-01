@@ -100,7 +100,7 @@ def filter_func(hands, face, triangle_data, centroids, video, label, video_name,
 
 def load_data_tfrecord(tfrecord_path):
     dataset = load_dataset(tfrecord_path)
-    dataset = dataset.filter(filter_func)
+    # dataset = dataset.filter(filter_func)
 
     dataset = prepare_for_training(dataset)
     return dataset
@@ -127,11 +127,15 @@ def draw_triangle_on_img(centroids, img):
     return img
 
 
-def plot_figure(row, col, img_seq):
+def plot_figure(row, col, img_seq, centroids=None, triangle=False):
     for j in range(row*col):
         plt.subplot(row, col, j+1)
         plt.axis('off')
-        plt.imshow(np.array(img_seq[j]))
+        if triangle:
+            triangle_img = draw_triangle_on_img(centroids[j], np.array(img_seq[j]))
+            plt.imshow(triangle_img)
+        else:
+            plt.imshow(np.array(img_seq[j]))
     plt.show()
 
 
@@ -142,10 +146,10 @@ for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name
     for i in range(video_name_list.shape[0]):
         if plot_images:
             plt.figure(figsize=(15, int(15*row/col)))
+            plot_figure(row, col, video_imgs[i], centroids[i], True)
             plot_figure(row, col, hand_seq[i][0])
             plot_figure(row, col, hand_seq[i][1])
             plot_figure(row, col, face_seq[i])
-            plot_figure(row, col, video_imgs[i])
         else:
             for j, video_name in enumerate(video_name_list[i]):
                 video_name = video_name.numpy().decode('utf-8')
