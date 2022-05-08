@@ -144,6 +144,13 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
         xmin, xmax, ymin, ymax = boxes[i][1], boxes[i][3], boxes[i][0], boxes[i][2]
         xmin, xmax, ymin, ymax = int(
             xmin * width), int(xmax * width), int(ymin * heigth), int(ymax * heigth)
+
+        # the code bellow could be used to increase the bouding box size by a percentage.
+        # xmin -= int(0.10 * (xmax - xmin))
+        # xmax += int(0.10 * (xmax - xmin))
+        # ymin -= int(0.10 * (ymax - ymin))
+        # ymax += int(0.10 * (ymax - ymin))
+
         output_bboxes[class_name] = {'xmin': xmin,
                                      'xmax': xmax, 'ymin': ymin, 'ymax': ymax}
 
