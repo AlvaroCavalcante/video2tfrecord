@@ -110,3 +110,5 @@ ENV/
 /src/utils/models
 /results
 /object_detection_db
+/errors_db
+*.jpg
