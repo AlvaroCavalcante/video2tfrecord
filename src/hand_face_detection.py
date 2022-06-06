@@ -128,7 +128,7 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
     output_bboxes = {'face': None, 'hand_1': None, 'hand_2': None}
     hand_counter = 2
     face_counter = 1
-    for i in np.where(scores > .4)[0]:
+    for i in np.where(scores > .55)[0]:
         class_name = category_index[classes[i]].get('name')
 
         if face_counter == 0 and hand_counter == 0:
@@ -219,6 +219,8 @@ def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
         generate_xml = AnnotationGenerator('./object_detection_db/')
         generate_xml.generate_xml_annotation(bouding_boxes, width, heigth, file_name)
         cv2.imwrite('./object_detection_db/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    else:
+        cv2.imwrite('./errors_db_autsl/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
     return image_np_with_detections, bouding_boxes
 
