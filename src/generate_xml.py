@@ -18,6 +18,9 @@ class AnnotationGenerator(object):
             for class_name in output_bbox:
                 box = output_bbox.get(class_name)
 
+                if class_name == 'hand_1' or class_name == 'hand_2':
+                    class_name = 'hand'
+
                 objectBox = ET.SubElement(annotation, 'object')
                 ET.SubElement(objectBox, 'name').text = class_name
                 ET.SubElement(objectBox, 'pose').text = 'Unspecified'
