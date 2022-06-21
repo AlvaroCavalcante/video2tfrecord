@@ -9,6 +9,7 @@ import pandas as pd
 
 from data_augmentation import transform_batch
 
+
 def read_tfrecord(example_proto):
     face = []
     hand_1 = []
@@ -59,7 +60,8 @@ def read_tfrecord(example_proto):
         hand_2_image = get_image(features[hand_2_stream], width, height)
         image = get_image(features[video_stream], 512, 512)
 
-        face_image, hand_1_image, hand_2_image = transform_batch(face_image, hand_1_image, hand_2_image, 80)
+        face_image, hand_1_image, hand_2_image = transform_batch(
+            face_image, hand_1_image, hand_2_image, 80)
 
         face.append(face_image)
         hand_1.append(hand_1_image)
@@ -95,8 +97,10 @@ def prepare_for_training(ds, shuffle_buffer_size=20):
 
     return ds
 
+
 def filter_func(hands, face, triangle_data, centroids, video, label, video_name, triangle_stream_arr):
     return tf.math.greater(label, 206)
+
 
 def load_data_tfrecord(tfrecord_path):
     dataset = load_dataset(tfrecord_path)
@@ -107,7 +111,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Documentos/video2tfrecord/example/train/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/example/train/*.tfrecords')
 row = 4
 col = 4
 
@@ -132,7 +136,8 @@ def plot_figure(row, col, img_seq, centroids=None, triangle=False):
         plt.subplot(row, col, j+1)
         plt.axis('off')
         if triangle:
-            triangle_img = draw_triangle_on_img(centroids[j], np.array(img_seq[j]))
+            triangle_img = draw_triangle_on_img(
+                centroids[j], np.array(img_seq[j]))
             plt.imshow(triangle_img)
         else:
             plt.imshow(np.array(img_seq[j]))
@@ -145,7 +150,6 @@ data = []
 for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in dataset:
     for i in range(video_name_list.shape[0]):
         if plot_images:
-            plt.figure(figsize=(15, int(15*row/col)))
             plot_figure(row, col, video_imgs[i], centroids[i], True)
             plot_figure(row, col, hand_seq[i][0])
             plot_figure(row, col, hand_seq[i][1])
@@ -155,20 +159,22 @@ for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name
                 video_name = video_name.numpy().decode('utf-8')
                 video_img = video_imgs[i][j]
                 img_centroids = centroids[i][j]
-                triangle_img = draw_triangle_on_img(img_centroids, np.array(video_img))
+                triangle_img = draw_triangle_on_img(
+                    img_centroids, np.array(video_img))
 
                 video_folder = '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/'+video_name
                 if not os.path.exists(video_folder):
                     os.mkdir(video_folder)
 
                 image_name = video_folder+'/'+video_name+'_'+str(j)+'.jpg'
-                
-                cv2.imwrite(image_name, cv2.cvtColor(triangle_img, cv2.COLOR_BGR2RGB))
-                
+
+                cv2.imwrite(image_name, cv2.cvtColor(
+                    triangle_img, cv2.COLOR_BGR2RGB))
+
                 data.append(list(map(lambda x: x.numpy(),
                             triangle_data[i][j][0])) + [video_name, image_name])
 
                 df = pd.DataFrame(data, columns=['distance_1', 'distance_2', 'distance_3', 'perimeter', 'semi_perimeter', 'area', 'height',
-                                'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
+                                                 'ang_inter_a', 'ang_inter_b', 'ang_inter_c', 'ang_ext_a', 'ang_ext_b', 'ang_ext_c', 'video_name', 'image_name'])
                 df.to_csv(
                     '/home/alvaro/Documentos/video2tfrecord/results/sign1_test/df_res.csv', index=False)
