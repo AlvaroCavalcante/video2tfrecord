@@ -146,10 +146,10 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
             xmin * width), int(xmax * width), int(ymin * heigth), int(ymax * heigth)
 
         # the code bellow could be used to increase the bouding box size by a percentage.
-        # xmin -= int(0.10 * (xmax - xmin))
-        # xmax += int(0.10 * (xmax - xmin))
-        # ymin -= int(0.10 * (ymax - ymin))
-        # ymax += int(0.10 * (ymax - ymin))
+        xmin -= int(0.10 * (xmax - xmin))
+        xmax += int(0.10 * (xmax - xmin))
+        ymin -= int(0.10 * (ymax - ymin))
+        ymax += int(0.10 * (ymax - ymin))
 
         output_bboxes[class_name] = {'xmin': xmin,
                                      'xmax': xmax, 'ymin': ymin, 'ymax': ymax}
@@ -216,9 +216,9 @@ def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
         heigth, width)
 
     if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
-        generate_xml = AnnotationGenerator('./object_detection_db/')
+        generate_xml = AnnotationGenerator('./object_detection_db_autsl/')
         generate_xml.generate_xml_annotation(bouding_boxes, width, heigth, file_name)
-        cv2.imwrite('./object_detection_db/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        cv2.imwrite('./object_detection_db_autsl/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     else:
         cv2.imwrite('./errors_db_autsl/'+file_name, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
