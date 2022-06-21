@@ -22,7 +22,7 @@ from tensorflow.python.platform import gfile
 import hand_face_detection
 
 MODEL = tf.saved_model.load(
-    'src/utils/models/centernet_restnet50/saved_model')
+    '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
 
 
 def _int64_feature(value):
@@ -58,6 +58,8 @@ def get_video_capture_and_frame_count(path):
         frame_count = int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
     else:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    frame_count -= 8 # remove last frames
 
     return cap, frame_count
 
@@ -524,6 +526,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        './AUTSL/test', 'example/test',
-        n_videos_in_record=120, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='./AUTSL/ground_truth.csv', reset_checkpoint=False)
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train',
+        n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
+        width=512, height=512, label_path='/home/alvaro/Downloads/train_labels.csv', reset_checkpoint=False)
