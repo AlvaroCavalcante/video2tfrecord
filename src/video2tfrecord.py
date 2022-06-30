@@ -456,7 +456,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
     padding_amount = n_frames - len(data)
-    if padding_amount > 4:
+    if padding_amount > 5:
         raise Exception('Padding amount is too high!')
 
     while len(data) < n_frames:
