@@ -35,9 +35,9 @@ def get_range_aug_dict(img_width):
     w_shift_range = [0, 0.05]
 
     range_aug_dict['rotation'] = tf.random.uniform([1], rotation_range[0],
-                                              rotation_range[1], dtype=tf.float32)
+                                                   rotation_range[1], dtype=tf.float32)
     range_aug_dict['shear'] = tf.random.uniform([1], shear_range[0],
-                                              shear_range[1], dtype=tf.float32)
+                                                shear_range[1], dtype=tf.float32)
     range_aug_dict['height_zoom'] = tf.random.uniform(
         [1], h_zoom_range[0], h_zoom_range[1], dtype=tf.float32)
     range_aug_dict['width_zoom'] = tf.random.uniform(
@@ -104,9 +104,12 @@ def read_tfrecord(example_proto):
         hand_2_image = get_image(features[hand_2_stream], width, height)
         image = get_image(features[video_stream], 512, 512)
 
-        face_image = transform_image(face_image, width, apply_proba_dict, range_aug_dict, seed)
-        hand_1_image = transform_image(hand_1_image, width, apply_proba_dict, range_aug_dict, seed, True)
-        hand_2_image = transform_image(hand_2_image, width, apply_proba_dict, range_aug_dict, seed, True)
+        face_image = transform_image(
+            face_image, width, apply_proba_dict, range_aug_dict, seed)
+        hand_1_image = transform_image(
+            hand_1_image, width, apply_proba_dict, range_aug_dict, seed, True)
+        hand_2_image = transform_image(
+            hand_2_image, width, apply_proba_dict, range_aug_dict, seed, True)
 
         face.append(face_image)
         hand_1.append(hand_1_image)
