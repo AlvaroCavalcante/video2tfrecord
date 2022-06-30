@@ -1,4 +1,5 @@
 import os
+import random
 from itertools import combinations
 
 import tensorflow as tf
@@ -7,7 +8,46 @@ import numpy as np
 import cv2
 import pandas as pd
 
-from data_augmentation import transform_batch
+from data_augmentation import transform_image
+
+
+def get_apply_proba_dict():
+    apply_proba_dict = {}
+    aug_keys = ['brightness', 'contrast', 'saturation', 'hue',
+                'flip_left_right', 'rotation', 'shear', 'zoom', 'shift']
+
+    apply_proba_dict = {}
+
+    for key in aug_keys:
+        apply_proba_dict[key] = tf.random.uniform([], 0, 1.0, dtype=tf.float32)
+
+    return apply_proba_dict
+
+
+def get_range_aug_dict(img_width):
+    range_aug_dict = {}
+
+    rotation_range = [-20, 20]
+    shear_range = [5, 12]
+    h_zoom_range = [0.8, 1.2]
+    w_zoom_range = [0.8, 1.2]
+    h_shift_range = [0, 0.15]
+    w_shift_range = [0, 0.05]
+
+    range_aug_dict['rotation'] = tf.random.uniform([1], rotation_range[0],
+                                              rotation_range[1], dtype=tf.float32)
+    range_aug_dict['shear'] = tf.random.uniform([1], shear_range[0],
+                                              shear_range[1], dtype=tf.float32)
+    range_aug_dict['height_zoom'] = tf.random.uniform(
+        [1], h_zoom_range[0], h_zoom_range[1], dtype=tf.float32)
+    range_aug_dict['width_zoom'] = tf.random.uniform(
+        [1], w_zoom_range[0], w_zoom_range[1], dtype=tf.float32)
+    range_aug_dict['height_shift'] = tf.random.uniform(
+        [1], h_shift_range[0], h_shift_range[1], dtype=tf.float32) * img_width
+    range_aug_dict['width_shift'] = tf.random.uniform(
+        [1], w_shift_range[0], w_shift_range[1], dtype=tf.float32) * img_width
+
+    return range_aug_dict
 
 
 def read_tfrecord(example_proto):
@@ -19,6 +59,10 @@ def read_tfrecord(example_proto):
     triangle_data = []
     centroids = []
     video = []
+
+    apply_proba_dict = get_apply_proba_dict()
+    range_aug_dict = get_range_aug_dict(80)
+    seed = random.randint(0, 10000)
 
     for image_count in range(16):
         face_stream = 'face/' + str(image_count)
@@ -60,8 +104,9 @@ def read_tfrecord(example_proto):
         hand_2_image = get_image(features[hand_2_stream], width, height)
         image = get_image(features[video_stream], 512, 512)
 
-        face_image, hand_1_image, hand_2_image = transform_batch(
-            face_image, hand_1_image, hand_2_image, 80)
+        face_image = transform_image(face_image, width, apply_proba_dict, range_aug_dict, seed)
+        hand_1_image = transform_image(hand_1_image, width, apply_proba_dict, range_aug_dict, seed, True)
+        hand_2_image = transform_image(hand_2_image, width, apply_proba_dict, range_aug_dict, seed, True)
 
         face.append(face_image)
         hand_1.append(hand_1_image)
@@ -89,7 +134,7 @@ def load_dataset(tf_record_path):
     return parsed_dataset
 
 
-def prepare_for_training(ds, shuffle_buffer_size=20):
+def prepare_for_training(ds, shuffle_buffer_size=30):
     # ds.cache() # I can remove this to don't use cache or use cocodata.tfcache
 
     ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
@@ -146,6 +191,12 @@ def plot_figure(row, col, img_seq, centroids=None, triangle=False):
 
 plot_images = True
 data = []
+
+# pred_df = pd.read_csv(
+#     '/home/alvaro/Desktop/multi-cue-sign-language/top3_predictions_lstm.csv')
+
+# pred_incorrect = pred_df[pred_df['correct_prediction'] == False]
+# pred_incorrect = list(pred_incorrect['video_names'].values)
 
 for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in dataset:
     for i in range(video_name_list.shape[0]):
