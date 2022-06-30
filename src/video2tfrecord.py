@@ -455,6 +455,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
+    padding_amount = n_frames - len(data)
+    if padding_amount > 4:
+        raise Exception('Padding amount is too high!')
+
     while len(data) < n_frames:
         if is_image:
             data.append(np.zeros((height, width, 3), dtype='uint8'))
@@ -526,6 +530,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train',
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/validation',
         n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Downloads/train_labels.csv', reset_checkpoint=False)
+        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=False)
