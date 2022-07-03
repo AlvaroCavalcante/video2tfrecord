@@ -399,9 +399,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     if not triangle_features:
                         continue
 
-                    # iterate over channels
-                    # TODO: why to resize each channel individually?
-
                     if not capture_restarted:
                         position = triangle_features['distance_1'] + \
                             triangle_features['distance_1']
