@@ -59,7 +59,7 @@ def get_video_capture_and_frame_count(path):
     else:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    frame_count -= 8 # remove last frames
+    frame_count -= 8  # remove last frames
 
     return cap, frame_count
 
@@ -154,6 +154,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         data, videos, triangle_data, centroid_positions, labels, error_videos = convert_video_to_numpy(filenames=batch, width=width, height=height,
                                                                                                        n_frames_per_video=n_frames_per_video, labels=labels)
 
+        batch = list(filter(lambda file: file not in error_videos, batch))
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
@@ -161,11 +162,16 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
-        for bt_file in batch:
-            if bt_file not in error_videos:
-                checkpoint_df = checkpoint_df.append(
-                    {'video_name': bt_file}, ignore_index=True)
-        checkpoint_df.to_csv('src/utils/checkpoint.csv', index=False)
+        save_new_checkpoint(checkpoint_df, batch, error_videos)
+
+
+def save_new_checkpoint(checkpoint_df, batch, error_videos):
+    print('Saving new video checkpoint')
+
+    for bt_file in batch:
+        checkpoint_df = checkpoint_df.append(
+            {'video_name': bt_file}, ignore_index=True)
+    checkpoint_df.to_csv('src/utils/checkpoint.csv', index=False)
 
 
 def get_filenames(source_path, file_suffix, video_filenames):
@@ -530,6 +536,6 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/validation',
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/validation_v2',
         n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=False)
+        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=True)
