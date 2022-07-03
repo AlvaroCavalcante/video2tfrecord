@@ -337,6 +337,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     capture_restarted = False
     restart = True
     frames_used = []
+    moviment_threshold_history = []
+    position_history = []
 
     while restart:
         frames_to_skip = 8  # initial frames to skip in sign language video
@@ -401,35 +403,60 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     # TODO: why to resize each channel individually?
 
                     if not capture_restarted:
-                        video.append(resize_frame(
-                            height, width, n_channels, frame))
-                        triangle_features_list.append(
-                            list(map(lambda key: triangle_features[key], triangle_features)))
-                        faces.append(resize_frame(
-                            face_width, face_height, n_channels, face))
-                        hands_1.append(resize_frame(
-                            hand_width, hand_height, n_channels, hand_1))
-                        hands_2.append(resize_frame(
-                            hand_width, hand_height, n_channels, hand_2))
-                        frames_used.append(frame_number)
-                        centroid_positions.append(centroids)
+                        position = triangle_features['distance_1'] + \
+                            triangle_features['distance_1']
+                        if len(position_history) > 1:
+                            moviment = abs(
+                                position - position_history[len(position_history)-1])
+                            moviment_threshold_history.append(moviment < 5)
+                        else:
+                            moviment_threshold_history.append(False)
+
+                        position_history.append(position)
+
+                        if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
+                            frames_counter -= 1
+                        else:
+                            video.append(resize_frame(
+                                height, width, n_channels, frame))
+                            triangle_features_list.append(
+                                list(map(lambda key: triangle_features[key], triangle_features)))
+                            faces.append(resize_frame(
+                                face_width, face_height, n_channels, face))
+                            hands_1.append(resize_frame(
+                                hand_width, hand_height, n_channels, hand_1))
+                            hands_2.append(resize_frame(
+                                hand_width, hand_height, n_channels, hand_2))
+                            frames_used.append(frame_number)
+                            centroid_positions.append(centroids)
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        video.insert(insert_index, resize_frame(
-                            height, width, n_channels, frame))
-                        triangle_features_list.insert(insert_index, list(
-                            map(lambda key: triangle_features[key], triangle_features)))
-                        faces.insert(insert_index, resize_frame(
-                            face_width, face_height, n_channels, face))
-                        hands_1.insert(insert_index, resize_frame(
-                            hand_width, hand_height, n_channels, hand_1))
-                        hands_2.insert(insert_index, resize_frame(
-                            hand_width, hand_height, n_channels, hand_2))
-                        centroid_positions.insert(insert_index, centroids)
+                        position = triangle_features['distance_1'] + \
+                            triangle_features['distance_1']
+                        position_history.insert(insert_index, position)
+                        moviment = abs(
+                            position - position_history[insert_index-1])
+                        moviment_threshold_history.insert(
+                            insert_index, moviment < 5)
 
-                        frames_used.insert(insert_index, frame_number)
+                        if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
+                            frames_counter -= 1
+                        else:
+                            video.insert(insert_index, resize_frame(
+                                height, width, n_channels, frame))
+                            triangle_features_list.insert(insert_index, list(
+                                map(lambda key: triangle_features[key], triangle_features)))
+                            faces.insert(insert_index, resize_frame(
+                                face_width, face_height, n_channels, face))
+                            hands_1.insert(insert_index, resize_frame(
+                                hand_width, hand_height, n_channels, hand_1))
+                            hands_2.insert(insert_index, resize_frame(
+                                hand_width, hand_height, n_channels, hand_2))
+                            centroid_positions.insert(insert_index, centroids)
+
+                            frames_used.insert(insert_index, frame_number)
 
                     last_face_detection = [] if last_position_used else faces[frames_counter]
                     last_hand_1_detection = [] if last_position_used else hands_1[frames_counter]
