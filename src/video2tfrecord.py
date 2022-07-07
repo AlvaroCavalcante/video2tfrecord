@@ -162,7 +162,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
-        save_new_checkpoint(checkpoint_df, batch, error_videos)
+        checkpoint_df = save_new_checkpoint(checkpoint_df, batch, error_videos)
 
 
 def save_new_checkpoint(checkpoint_df, batch, error_videos):
@@ -172,6 +172,7 @@ def save_new_checkpoint(checkpoint_df, batch, error_videos):
         checkpoint_df = checkpoint_df.append(
             {'video_name': bt_file}, ignore_index=True)
     checkpoint_df.to_csv('src/utils/checkpoint.csv', index=False)
+    return checkpoint_df
 
 
 def get_filenames(source_path, file_suffix, video_filenames):
@@ -556,10 +557,10 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
             error_videos.append(file)
 
     return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels, error_videos
-
+ 
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/validation_v2',
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train_v2',
         n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=True)
+        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=True)
