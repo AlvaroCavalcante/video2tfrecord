@@ -401,11 +401,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         continue
 
                     if not capture_restarted:
+                        # compute the moviment of both hands
                         position = triangle_features['distance_1'] + \
-                            triangle_features['distance_1']
+                            triangle_features['distance_2']
                         if len(position_history) > 1:
+                            # calculate the moviment considering the diff between positions
                             moviment = abs(
                                 position - position_history[len(position_history)-1])
+                            
+                            # check if the moviment is relevant of not
                             moviment_threshold_history.append(moviment < 5)
                         else:
                             moviment_threshold_history.append(False)
@@ -432,7 +436,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             frames_used, frame_number)
 
                         position = triangle_features['distance_1'] + \
-                            triangle_features['distance_1']
+                            triangle_features['distance_2']
                         position_history.insert(insert_index, position)
                         moviment = abs(
                             position - position_history[insert_index-1])

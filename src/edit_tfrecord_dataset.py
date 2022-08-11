@@ -5,6 +5,10 @@ from datetime import datetime
 import tensorflow as tf
 import numpy as np
 
+"""
+This script is used to normalized the triangle values. We modified
+the tfrecord values to avoid reprocessing the entire dataset.
+"""
 
 def read_tfrecord(example_proto):
     feature_list = []
