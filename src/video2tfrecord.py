@@ -133,11 +133,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
     filenames = get_filenames(source_path, file_suffix, video_filenames)
     class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
-    if reset_checkpoint:
-        checkpoint_df = pd.DataFrame(columns=['video_name'])
-    else:
-        checkpoint_df = pd.read_csv('src/utils/checkpoint.csv', header=0)
-        filenames = remove_from_checkpoint(checkpoint_df, filenames)
+    filenames, checkpoint_df = recover_checkpoint(reset_checkpoint, filenames)
 
     total_batch_number = 1 if n_videos_in_record > len(
         filenames) else int(math.ceil(len(filenames) / n_videos_in_record))
@@ -148,7 +144,6 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         print('Processing batch {}'.format(str(i)))
 
         data = None
-
         labels = get_data_label(batch, class_labels)
 
         data, videos, triangle_data, centroid_positions, labels, error_videos = convert_video_to_numpy(filenames=batch, width=width, height=height,
@@ -163,6 +158,15 @@ def convert_videos_to_tfrecord(source_path, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
         checkpoint_df = save_new_checkpoint(checkpoint_df, batch, error_videos)
+
+
+def recover_checkpoint(reset_checkpoint, filenames):
+    if reset_checkpoint:
+        checkpoint_df = pd.DataFrame(columns=['video_name'])
+    else:
+        checkpoint_df = pd.read_csv('src/utils/checkpoint.csv', header=0)
+        filenames = remove_from_checkpoint(checkpoint_df, filenames)
+    return filenames, checkpoint_df
 
 
 def save_new_checkpoint(checkpoint_df, batch, error_videos):
@@ -408,7 +412,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             # calculate the moviment considering the diff between positions
                             moviment = abs(
                                 position - position_history[len(position_history)-1])
-                            
+
                             # check if the moviment is relevant of not
                             moviment_threshold_history.append(moviment < 5)
                         else:
@@ -561,7 +565,7 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
             error_videos.append(file)
 
     return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels, error_videos
- 
+
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
