@@ -14,27 +14,20 @@ except:
     print('GPU not found')
 
 
-def get_centroids(bouding_boxes, last_positions):
+def get_centroids(bouding_boxes):
     centroids = {}
-    last_position_used = False
 
     for class_name in bouding_boxes:
         bbox = bouding_boxes.get(class_name)
         if bbox:
             xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
         else:
-            bbox = last_positions.get(class_name)
-            last_position_used = True
-
-            if not bbox:
-                return centroids, last_position_used
-
-            xmin, xmax, ymin, ymax = bbox['xmin'], bbox['xmax'], bbox['ymin'], bbox['ymax']
+            return centroids
 
         centroid = (int((xmin+xmax)/2), int((ymin+ymax)/2))
         centroids[class_name] = centroid
 
-    return centroids, last_position_used
+    return centroids
 
 
 def get_normalized_angle(opposite, adjacent_1, adjacent_2):
@@ -91,9 +84,8 @@ def compute_triangle_features(centroids):
         print(e)
 
 
-def compute_features_and_draw_lines(bouding_boxes, last_positions):
-    centroids, last_position_used = get_centroids(
-        bouding_boxes, last_positions)
+def compute_features_and_draw_lines(bouding_boxes):
+    centroids = get_centroids(bouding_boxes)
 
     triangle_features = {}
     flatten_centroids = []
@@ -105,7 +97,7 @@ def compute_features_and_draw_lines(bouding_boxes, last_positions):
         for class_name in class_sequence:
             flatten_centroids.extend(list(centroids[class_name]))
 
-    return triangle_features, flatten_centroids, last_position_used
+    return triangle_features, flatten_centroids
 
 
 def compute_centroids_distances(centroids):
@@ -171,7 +163,7 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
     return image_np_with_detections, output_bboxes
 
 
-def get_image_segments(input_image, bouding_boxes, last_face_detection, last_hand_1_detection, last_hand_2_detection):
+def get_image_segments(input_image, bouding_boxes, last_frame, last_positions):
     face = None
     hand_1 = None
     hand_2 = None
@@ -185,15 +177,19 @@ def get_image_segments(input_image, bouding_boxes, last_face_detection, last_han
             img_segment = input_image[bbox['ymin']:bbox['ymax'], bbox['xmin']:bbox['xmax']]
         else:
             last_position_used = True
+            bbox = last_positions.get(class_name)
+            if bbox:
+                img_segment = last_frame[bbox['ymin']:bbox['ymax'], bbox['xmin']:bbox['xmax']]
+                bouding_boxes[class_name] = bbox
 
         if class_name == 'face':
-            face = img_segment if not last_position_used else last_face_detection
+            face = img_segment
         elif class_name == 'hand_1':
-            hand_1 = img_segment if not last_position_used else last_hand_1_detection
+            hand_1 = img_segment
         else:
-            hand_2 = img_segment if not last_position_used else last_hand_2_detection
+            hand_2 = img_segment
 
-    return face, hand_1, hand_2, last_position_used
+    return face, hand_1, hand_2, last_position_used, bouding_boxes
 
 
 def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
@@ -238,11 +234,9 @@ def detect_visual_cues_from_image(**kwargs):
     _, bouding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
-    triangle_features, centroids, last_position_used = compute_features_and_draw_lines(
-        bouding_boxes, kwargs.get('last_positions'))
+    face_segment, hand_1, hand_2, last_position_used, bouding_boxes = get_image_segments(
+        input_image, bouding_boxes, kwargs.get('last_frame'), kwargs.get('last_positions'))
 
-    face_segment, hand_1, hand_2, last_position_used = get_image_segments(
-        input_image, bouding_boxes, kwargs.get('last_face_detection'),
-        kwargs.get('last_hand_1_detection'), kwargs.get('last_hand_2_detection'))
+    triangle_features, centroids = compute_features_and_draw_lines(bouding_boxes)
 
     return face_segment, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used

@@ -332,9 +332,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     triangle_features_list = []
     centroid_positions = []
 
-    last_face_detection = []
-    last_hand_1_detection = []
-    last_hand_2_detection = []
+    last_frame = []
     last_positions = {}
     last_position_used = False
 
@@ -394,9 +392,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         detect_fn=MODEL,
                         height=height,
                         width=width,
-                        last_face_detection=last_face_detection,
-                        last_hand_1_detection=last_hand_1_detection,
-                        last_hand_2_detection=last_hand_2_detection,
+                        last_frame=last_frame,
                         last_positions=last_positions,
                         file_name=file_name
                     )
@@ -406,19 +402,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     if not capture_restarted:
                         # compute the moviment of both hands
-                        position = triangle_features['distance_1'] + \
-                            triangle_features['distance_2']
-                        if len(position_history) > 1:
-                            # calculate the moviment considering the diff between positions
-                            moviment = abs(
-                                position - position_history[len(position_history)-1])
-
-                            # check if the moviment is relevant of not
-                            moviment_threshold_history.append(moviment < 5)
-                        else:
-                            moviment_threshold_history.append(False)
-
-                        position_history.append(position)
+                        moviment_threshold_history, position_history = compute_hand_moviment(
+                            moviment_threshold_history, position_history, triangle_features)
 
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
@@ -464,9 +449,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                             frames_used.insert(insert_index, frame_number)
 
-                    last_face_detection = [] if last_position_used else faces[frames_counter]
-                    last_hand_1_detection = [] if last_position_used else hands_1[frames_counter]
-                    last_hand_2_detection = [] if last_position_used else hands_2[frames_counter]
+                    last_frame = [] if last_position_used else frame
                     last_positions = {} if last_position_used else bouding_boxes
                     last_position_used = False
 
@@ -491,6 +474,25 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, centroid_positions, video
+
+
+def compute_hand_moviment(moviment_threshold_history, position_history, triangle_features):
+    position = triangle_features['distance_1'] + \
+        triangle_features['distance_2']
+
+    if len(position_history) > 1:
+        # calculate the moviment considering the diff between positions
+        moviment = abs(
+            position - position_history[len(position_history)-1])
+
+        # check if the moviment diff is relevant of not
+        moviment_threshold_history.append(moviment < 5)
+    else:
+        moviment_threshold_history.append(False)
+
+    position_history.append(position)
+
+    return moviment_threshold_history, position_history
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
