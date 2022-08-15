@@ -50,15 +50,17 @@ def compute_triangle_features(centroids):
         triangle_features = {}
 
         d1, d2, d3 = compute_centroids_distances(centroids)
+        perimeter = d1 + d2 + d3
+        norm_semi_perimeter = 0.5 # considering that perimeter is 1
+
+        d1, d2, d3 = d1/perimeter, d2/perimeter, d3/perimeter
 
         triangle_features.update(
             {'distance_1': d1, 'distance_2': d2, 'distance_3': d3})
 
-        triangle_features['perimeter'] = d1 + d2 + d3
-        triangle_features['semi_perimeter'] = triangle_features['perimeter'] / 2
         triangle_features['area'] = math.sqrt(   # Fórmula de Heron https://www.todamateria.com.br/area-do-triangulo/
-            (triangle_features['semi_perimeter'] * (triangle_features['semi_perimeter'] - d1) * (
-                triangle_features['semi_perimeter'] - d2) * (triangle_features['semi_perimeter'] - d3)))
+            (norm_semi_perimeter * (norm_semi_perimeter - d1) * (
+                norm_semi_perimeter - d2) * (norm_semi_perimeter - d3)))
 
         # avoid 0 division
         triangle_features['height'] = 2 * \

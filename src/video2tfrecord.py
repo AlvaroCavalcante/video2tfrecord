@@ -326,8 +326,8 @@ def get_frames_skip(frame_count):
 
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
-    hand_width, hand_height = 80, 80
-    face_width, face_height = 80, 80
+    hand_width, hand_height = 100, 100
+    face_width, face_height = 100, 100
 
     cap, frame_count = get_video_capture_and_frame_count(file_path)
 
@@ -478,7 +478,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         hands_2, n_frames, hand_height, hand_width)
     video = fill_data_and_convert_to_np(video, n_frames, height, width)
     triangle_features_list = fill_data_and_convert_to_np(
-        triangle_features_list, n_frames, 1, 13, False)
+        triangle_features_list, n_frames, 1, 11, False)
     positions = fill_data_and_convert_to_np(
         positions, n_frames, 1, 12, False)
 
@@ -589,5 +589,5 @@ def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train_v2',
-        n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
+        n_videos_in_record=10, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=True)
