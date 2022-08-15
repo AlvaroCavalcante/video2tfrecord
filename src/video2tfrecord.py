@@ -59,7 +59,8 @@ def get_video_capture_and_frame_count(path):
     else:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    frame_count -= 8  # remove last frames
+    # remove last frames
+    frame_count = frame_count - get_frames_skip(frame_count)
 
     return cap, frame_count
 
@@ -315,6 +316,15 @@ def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_resta
     return stop, cap, steps, capture_restarted
 
 
+def get_frames_skip(frame_count):
+    if frame_count <= 40:
+        return 4
+    elif frame_count <= 50:
+        return 6
+
+    return 8
+
+
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
     hand_width, hand_height = 80, 80
     face_width, face_height = 80, 80
@@ -330,7 +340,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     hands_1 = []
     hands_2 = []
     triangle_features_list = []
-    centroid_positions = []
+    positions = []
 
     last_frame = []
     last_positions = {}
@@ -344,7 +354,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     position_history = []
 
     while restart:
-        frames_to_skip = 8  # initial frames to skip in sign language video
+        # initial frames to skip in sign language video
+        frames_to_skip = get_frames_skip(frame_count)
 
         steps = frame_count if take_all_frames else int(
             math.floor((frame_count - frames_to_skip) / n_frames_per_video))
@@ -386,7 +397,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
-                    face, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
+                    face, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='src/utils/label_map.pbtxt',
                         detect_fn=MODEL,
@@ -399,6 +410,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     if not triangle_features:
                         continue
+
+                    flatten_bbox_pos = []
+                    for bbox_pos in list(bouding_boxes.values()):
+                        flatten_bbox_pos.extend(list(bbox_pos.values()))
 
                     if not capture_restarted:
                         # compute the moviment of both hands
@@ -419,18 +434,13 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             hands_2.append(resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
                             frames_used.append(frame_number)
-                            centroid_positions.append(centroids)
+                            positions.append(flatten_bbox_pos)
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        position = triangle_features['distance_1'] + \
-                            triangle_features['distance_2']
-                        position_history.insert(insert_index, position)
-                        moviment = abs(
-                            position - position_history[insert_index-1])
-                        moviment_threshold_history.insert(
-                            insert_index, moviment < 5)
+                        moviment_threshold_history, position_history = compute_hand_moviment(
+                            moviment_threshold_history, position_history, triangle_features)
 
                         if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
                             frames_counter -= 1
@@ -445,7 +455,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 hand_width, hand_height, n_channels, hand_1))
                             hands_2.insert(insert_index, resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
-                            centroid_positions.insert(insert_index, centroids)
+                            positions.insert(insert_index, flatten_bbox_pos)
 
                             frames_used.insert(insert_index, frame_number)
 
@@ -469,28 +479,35 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     video = fill_data_and_convert_to_np(video, n_frames, height, width)
     triangle_features_list = fill_data_and_convert_to_np(
         triangle_features_list, n_frames, 1, 13, False)
-    centroid_positions = fill_data_and_convert_to_np(
-        centroid_positions, n_frames, 1, 6, False)
+    positions = fill_data_and_convert_to_np(
+        positions, n_frames, 1, 12, False)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, centroid_positions, video
+    return faces, hands_1, hands_2, triangle_features_list, positions, video
 
 
-def compute_hand_moviment(moviment_threshold_history, position_history, triangle_features):
+def compute_hand_moviment(moviment_threshold_history, position_history, triangle_features, insert_index=None):
     position = triangle_features['distance_1'] + \
         triangle_features['distance_2']
 
     if len(position_history) > 1:
         # calculate the moviment considering the diff between positions
-        moviment = abs(
-            position - position_history[len(position_history)-1])
+        if not insert_index:
+            moviment = abs(
+                position - position_history[len(position_history)-1])
 
-        # check if the moviment diff is relevant of not
-        moviment_threshold_history.append(moviment < 5)
+            # check if the moviment diff is relevant of not
+            moviment_threshold_history.append(moviment < 5)
+        else:
+            moviment = abs(position - position_history[insert_index-1])
+            moviment_threshold_history.insert(insert_index, moviment < 5)
     else:
         moviment_threshold_history.append(False)
 
-    position_history.append(position)
+    if insert_index is None:
+        position_history.append(position)
+    else:
+        position_history.insert(insert_index, position)
 
     return moviment_threshold_history, position_history
 

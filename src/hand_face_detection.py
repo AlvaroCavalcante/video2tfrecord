@@ -88,16 +88,11 @@ def compute_features_and_draw_lines(bouding_boxes):
     centroids = get_centroids(bouding_boxes)
 
     triangle_features = {}
-    flatten_centroids = []
 
     if len(centroids) == 3:
         triangle_features = compute_triangle_features(centroids)
 
-        class_sequence = ['hand_1', 'hand_2', 'face']
-        for class_name in class_sequence:
-            flatten_centroids.extend(list(centroids[class_name]))
-
-    return triangle_features, flatten_centroids
+    return triangle_features
 
 
 def compute_centroids_distances(centroids):
@@ -237,6 +232,6 @@ def detect_visual_cues_from_image(**kwargs):
     face_segment, hand_1, hand_2, last_position_used, bouding_boxes = get_image_segments(
         input_image, bouding_boxes, kwargs.get('last_frame'), kwargs.get('last_positions'))
 
-    triangle_features, centroids = compute_features_and_draw_lines(bouding_boxes)
+    triangle_features = compute_features_and_draw_lines(bouding_boxes)
 
-    return face_segment, hand_1, hand_2, triangle_features, centroids, bouding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used
