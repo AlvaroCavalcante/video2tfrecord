@@ -397,7 +397,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
-                    face, hand_1, hand_2, triangle_features, bouding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
+                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='src/utils/label_map.pbtxt',
                         detect_fn=MODEL,
@@ -412,7 +412,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         continue
 
                     flatten_bbox_pos = []
-                    for bbox_pos in list(bouding_boxes.values()):
+                    for bbox_pos in list(bounding_boxes.values()):
                         flatten_bbox_pos.extend(list(bbox_pos.values()))
 
                     if not capture_restarted:
@@ -460,7 +460,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             frames_used.insert(insert_index, frame_number)
 
                     last_frame = [] if last_position_used else frame
-                    last_positions = {} if last_position_used else bouding_boxes
+                    last_positions = {} if last_position_used else bounding_boxes
                     last_position_used = False
 
                     frames_counter += 1
@@ -497,7 +497,7 @@ def compute_hand_moviment(moviment_threshold_history, position_history, triangle
                 position - position_history[len(position_history)-1])
 
             # check if the moviment diff is relevant of not
-            moviment_threshold_history.append(moviment < 5)
+            moviment_threshold_history.append(moviment < 0.0005)
         else:
             moviment = abs(position - position_history[insert_index-1])
             moviment_threshold_history.insert(insert_index, moviment < 5)
