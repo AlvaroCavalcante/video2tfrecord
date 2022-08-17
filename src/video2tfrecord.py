@@ -20,6 +20,7 @@ import tensorflow as tf
 from tensorflow.python.platform import gfile
 
 import hand_face_detection
+from utils import bounding_box_utils as bbox_utils
 
 MODEL = tf.saved_model.load(
     '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
@@ -340,7 +341,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     hands_1 = []
     hands_2 = []
     triangle_features_list = []
-    positions = []
+    bbox_coords = []
 
     last_frame = []
     last_positions = {}
@@ -350,8 +351,17 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     capture_restarted = False
     restart = True
     frames_used = []
+
+    position_features = {
+        'hand1_position': [],
+        'hand2_position': [],
+        'both_hands_position': [],
+        'hand1_moviment_hist': [],
+        'hand2_moviment_hist': [],
+        'both_hands_moviment_hist': []
+    }
+
     moviment_threshold_history = []
-    position_history = []
 
     while restart:
         # initial frames to skip in sign language video
@@ -411,14 +421,20 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     if not triangle_features:
                         continue
 
-                    flatten_bbox_pos = []
-                    for bbox_pos in list(bounding_boxes.values()):
-                        flatten_bbox_pos.extend(list(bbox_pos.values()))
+                    flatten_bbox_coords = get_flatten_bbox_array(
+                        bounding_boxes)
+
+                    # cv2.imwrite(
+                    #     f'/home/alvaro/Desktop/video2tfrecord/src/video_sample/sample_{frame_number}.jpg', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
                     if not capture_restarted:
-                        # compute the moviment of both hands
-                        moviment_threshold_history, position_history = compute_hand_moviment(
-                            moviment_threshold_history, position_history, triangle_features)
+                        position_features = bbox_utils.get_position_features(
+                            position_features, triangle_features)
+                        position_features = bbox_utils.get_moviment_features(
+                            position_features)
+
+                        moviment_threshold_history.append(
+                            position_features['both_hands_moviment_hist'][-1] < 0.0005)
 
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
@@ -434,13 +450,19 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             hands_2.append(resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
                             frames_used.append(frame_number)
-                            positions.append(flatten_bbox_pos)
+                            bbox_coords.append(flatten_bbox_coords)
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        moviment_threshold_history, position_history = compute_hand_moviment(
-                            moviment_threshold_history, position_history, triangle_features)
+                        position_features = bbox_utils.get_position_features(
+                            position_features, triangle_features, insert_index)
+
+                        position_features = bbox_utils.get_moviment_features(
+                            position_features, insert_index)
+
+                        moviment_threshold_history.append(
+                            position_features['both_hands_moviment_hist'][insert_index] < 0.0005)
 
                         if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
                             frames_counter -= 1
@@ -455,7 +477,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 hand_width, hand_height, n_channels, hand_1))
                             hands_2.insert(insert_index, resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
-                            positions.insert(insert_index, flatten_bbox_pos)
+                            bbox_coords.insert(
+                                insert_index, flatten_bbox_coords)
 
                             frames_used.insert(insert_index, frame_number)
 
@@ -479,37 +502,18 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     video = fill_data_and_convert_to_np(video, n_frames, height, width)
     triangle_features_list = fill_data_and_convert_to_np(
         triangle_features_list, n_frames, 1, 11, False)
-    positions = fill_data_and_convert_to_np(
-        positions, n_frames, 1, 12, False)
+    bbox_coords = fill_data_and_convert_to_np(
+        bbox_coords, n_frames, 1, 12, False)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, positions, video
+    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video
 
 
-def compute_hand_moviment(moviment_threshold_history, position_history, triangle_features, insert_index=None):
-    position = triangle_features['distance_1'] + \
-        triangle_features['distance_2']
-
-    if len(position_history) > 1:
-        # calculate the moviment considering the diff between positions
-        if not insert_index:
-            moviment = abs(
-                position - position_history[len(position_history)-1])
-
-            # check if the moviment diff is relevant of not
-            moviment_threshold_history.append(moviment < 0.0005)
-        else:
-            moviment = abs(position - position_history[insert_index-1])
-            moviment_threshold_history.insert(insert_index, moviment < 5)
-    else:
-        moviment_threshold_history.append(False)
-
-    if insert_index is None:
-        position_history.append(position)
-    else:
-        position_history.insert(insert_index, position)
-
-    return moviment_threshold_history, position_history
+def get_flatten_bbox_array(bounding_boxes):
+    flatten_bbox_coords = []
+    for bbox_pos in list(bounding_boxes.values()):
+        flatten_bbox_coords.extend(list(bbox_pos.values()))
+    return flatten_bbox_coords
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
@@ -590,4 +594,4 @@ if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train_v2',
         n_videos_in_record=10, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=True)
+        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=False)

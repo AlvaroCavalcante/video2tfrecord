@@ -42,6 +42,7 @@ def align_class_names(current_positions, last_positions):
     else:
         return {'hand_1': current_positions['hand_2'], 'hand_2': current_positions['hand_1'], 'face': current_positions['face']}
 
+
 def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, draw_on_image=False):
     category_index = label_map_util.create_category_index_from_labelmap(label_map_path,
                                                                         use_display_name=True)
@@ -94,3 +95,76 @@ def get_box_coordinates(boxes, heigth, width, index):
     ymax += int(0.10 * (ymax - ymin))
 
     return xmin, xmax, ymin, ymax
+
+
+def get_position_features(position_features, triangle_features, insert_index=None):
+    """
+    This function calculates the position of the hands in relation
+    to the face (fixed point in image). Besides that, it also calculates
+    the absolute distance between both hands in relation to the face, in order
+    to check if there's any moviment in the frame.
+    """
+
+    both_hands_position = triangle_features['distance_1'] + \
+        triangle_features['distance_2']
+
+    hand_1_position = triangle_features['distance_1']
+    hand_2_position = triangle_features['distance_2']
+
+    if not insert_index:
+        position_features['both_hands_position'].append(both_hands_position)
+        position_features['hand1_position'].append(hand_1_position)
+        position_features['hand2_position'].append(hand_2_position)
+    else:
+        position_features['both_hands_position'].insert(
+            insert_index, both_hands_position)
+        position_features['hand1_position'].insert(
+            insert_index, hand_1_position)
+        position_features['hand2_position'].insert(
+            insert_index, hand_2_position)
+
+    return position_features
+
+
+def get_moviment_features(position_features, insert_index=None):
+    if len(position_features['both_hands_position']) > 1:
+        if not insert_index:
+            both_hands_mov = abs(
+            position_features['both_hands_position'][-1] -
+            position_features['both_hands_position'][-2]
+            )
+
+            hand1_mov = position_features['hand1_position'][-1] - \
+                position_features['hand1_position'][-2]
+
+            hand2_mov = position_features['hand2_position'][-1] - \
+                position_features['hand2_position'][-2]
+
+            position_features['both_hands_moviment_hist'].append(
+                both_hands_mov)
+            position_features['hand1_moviment_hist'].append(hand1_mov)
+            position_features['hand2_moviment_hist'].append(hand2_mov)
+        else:
+            both_hands_mov = abs(
+            position_features['both_hands_position'][insert_index] -
+            position_features['both_hands_position'][insert_index-1]
+            )
+
+            hand1_mov = position_features['hand1_position'][insert_index] - \
+                position_features['hand1_position'][insert_index-1]
+
+            hand2_mov = position_features['hand2_position'][insert_index] - \
+                position_features['hand2_position'][insert_index-1]
+
+            position_features['both_hands_moviment_hist'].insert(
+                insert_index, both_hands_mov)
+            position_features['hand1_moviment_hist'].insert(
+                insert_index, hand1_mov)
+            position_features['hand2_moviment_hist'].insert(
+                insert_index, hand2_mov)
+    else:
+        position_features['both_hands_moviment_hist'].append(0)
+        position_features['hand1_moviment_hist'].append(0)
+        position_features['hand2_moviment_hist'].append(0)
+
+    return position_features
