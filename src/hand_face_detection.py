@@ -13,6 +13,10 @@ except:
     print('GPU not found')
 
 
+MODEL = tf.saved_model.load(
+    '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
+
+
 def compute_features_and_draw_lines(bouding_boxes):
     centroids = triangle_utils.get_centroids(bouding_boxes)
 
@@ -50,12 +54,12 @@ def get_image_segments(input_image, bouding_boxes, last_frame, last_positions_us
     return face, hand_1, hand_2
 
 
-def infer_images(image, label_map_path, detect_fn, heigth, width, file_name):
+def infer_images(image, label_map_path, heigth, width, file_name):
     image_np = np.array(image)
     input_tensor = tf.convert_to_tensor(image_np)
     input_tensor = input_tensor[tf.newaxis, ...]
 
-    detections = detect_fn(input_tensor)
+    detections = MODEL(input_tensor)
 
     num_detections = int(detections.pop('num_detections'))
     detections = {key: value[0, :num_detections].numpy()
@@ -104,7 +108,7 @@ def detect_visual_cues_from_image(**kwargs):
     input_image = kwargs.get('image')
 
     _, bounding_boxes = infer_images(input_image, kwargs.get(
-        'label_map_path'), kwargs.get('detect_fn'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
+        'label_map_path'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
     bounding_boxes, last_positions_use = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
     bounding_boxes = bbox_utils.align_class_names(bounding_boxes, kwargs.get('last_positions'))

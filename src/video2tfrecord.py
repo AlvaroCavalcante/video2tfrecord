@@ -6,25 +6,15 @@
  an equal separation distribution of the video images. Implementation supports Optical Flow
  (currently OpenCV's calcOpticalFlowFarneback) as an additional 4th channel.
 """
-import copy
 import os
-import time
 import math
-import bisect
 from datetime import datetime
 
-import cv2
-import numpy as np
 import pandas as pd
-
 import tensorflow as tf
 from tensorflow.python.platform import gfile
 
-import hand_face_detection
-from utils import bounding_box_utils as bbox_utils
-
-MODEL = tf.saved_model.load(
-    '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
+import video2numpy
 
 
 def _int64_feature(value):
@@ -44,39 +34,6 @@ def get_chunks(l, n):
     Used to create n sublists from a list l"""
     for i in range(0, len(l), n):
         yield l[i:i + n]
-
-
-def get_video_capture_and_frame_count(path):
-    assert os.path.isfile(
-        path), "Couldn't find video file:" + path + ". Skipping video."
-    cap = None
-    if path:
-        cap = cv2.VideoCapture(path)
-
-    assert cap is not None, "Couldn't load video capture:" + path + ". Skipping video."
-
-    # compute meta data of video
-    if hasattr(cv2, 'cv'):
-        frame_count = int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
-    else:
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    # remove last frames
-    frame_count = frame_count - get_frames_skip(frame_count)
-
-    return cap, frame_count
-
-
-def get_next_frame(cap):
-    ret, frame = cap.read()
-    if not ret:
-        return None
-
-    frame = np.asarray(frame)
-    if frame is not None:
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    return frame
 
 
 def get_data_label(batch_files, class_labels):
@@ -149,8 +106,8 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         data = None
         labels = get_data_label(batch, class_labels)
 
-        data, videos, triangle_data, centroid_positions, labels, error_videos = convert_video_to_numpy(filenames=batch, width=width, height=height,
-                                                                                                       n_frames_per_video=n_frames_per_video, labels=labels)
+        data, videos, triangle_data, centroid_positions, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
+                                                                                                                    n_frames_per_video=n_frames_per_video, labels=labels)
 
         batch = list(filter(lambda file: file not in error_videos, batch))
         print('Batch ' + str(i + 1) + '/' +
@@ -297,304 +254,8 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
     return writer
 
 
-def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
-    stop = False
-
-    if not take_all_frames:
-        # repeat with smaller step size
-        steps -= 1
-
-    if capture_restarted or steps <= 0:
-        stop = True
-        return stop, cap, steps, capture_restarted
-
-    capture_restarted = True
-    print('reducing step size due to error for video: ', file_path)
-    cap.release()
-    cap, _ = get_video_capture_and_frame_count(file_path)
-    # wait for image retrieval to be ready
-    time.sleep(.5)
-
-    return stop, cap, steps, capture_restarted
-
-
-def get_frames_skip(frame_count):
-    if frame_count <= 40:
-        return 4
-    elif frame_count <= 50:
-        return 6
-
-    return 8
-
-
-def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
-    hand_width, hand_height = 100, 100
-    face_width, face_height = 100, 100
-
-    cap, frame_count = get_video_capture_and_frame_count(file_path)
-
-    take_all_frames = True if n_frames_per_video == 'all' else False
-
-    n_frames = frame_count if take_all_frames else n_frames_per_video
-
-    video = []
-    faces = []
-    hands_1 = []
-    hands_2 = []
-    triangle_features_list = []
-    bbox_coords = []
-
-    last_frame = []
-    last_positions = {}
-    last_position_used = False
-
-    frames_counter = 0
-    capture_restarted = False
-    restart = True
-    frames_used = []
-
-    position_features = {
-        'hand1_position': [],
-        'hand2_position': [],
-        'both_hands_position': [],
-        'hand1_moviment_hist': [],
-        'hand2_moviment_hist': [],
-        'both_hands_moviment_hist': []
-    }
-
-    moviment_threshold_history = []
-
-    while restart:
-        # initial frames to skip in sign language video
-        frames_to_skip = get_frames_skip(frame_count)
-
-        steps = frame_count if take_all_frames else int(
-            math.floor((frame_count - frames_to_skip) / n_frames_per_video))
-
-        if frames_counter > 0:
-            stop, cap, steps, capture_restarted = repeat_image_retrieval(
-                cap, file_path, take_all_frames, steps, capture_restarted)
-
-            if stop:
-                restart = False
-                break
-
-        for frame_number in range(frame_count):
-            if frames_to_skip > 0:  # skipping the first frames of the sign language video
-                get_next_frame(cap)
-                frames_to_skip -= 1
-                continue
-            if math.floor(frame_number % steps) == 0 or take_all_frames:
-                frame = get_next_frame(cap)
-
-                # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
-                if frame is None and frames_counter < n_frames:
-                    stop, cap, steps, capture_restarted = repeat_image_retrieval(
-                        cap, file_path, take_all_frames, steps, capture_restarted)
-
-                    if stop:
-                        restart = False
-
-                    break
-
-                elif frames_counter >= n_frames:
-                    restart = False
-                    break
-
-                elif frame_number in frames_used:
-                    continue
-
-                else:
-                    file_name = file_path.split(
-                        '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
-
-                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
-                        image=frame,
-                        label_map_path='src/utils/label_map.pbtxt',
-                        detect_fn=MODEL,
-                        height=height,
-                        width=width,
-                        last_frame=last_frame,
-                        last_positions=last_positions,
-                        file_name=file_name
-                    )
-
-                    if not triangle_features:
-                        continue
-
-                    flatten_bbox_coords = get_flatten_bbox_array(
-                        bounding_boxes)
-
-                    temporary_position_features = copy.deepcopy(position_features)
-
-
-                    if not capture_restarted:
-                        temporary_position_features = bbox_utils.get_position_features(
-                            temporary_position_features, triangle_features)
-                        temporary_position_features = bbox_utils.get_moviment_features(
-                            temporary_position_features)
-
-                        moviment_threshold_history.append(
-                            temporary_position_features['both_hands_moviment_hist'][-1] < 5)
-
-                        if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
-                            frames_counter -= 1
-                        else:
-                            video.append(resize_frame(
-                                height, width, n_channels, frame))
-                            triangle_features_list.append(
-                                list(map(lambda key: triangle_features[key], triangle_features)))
-                            faces.append(resize_frame(
-                                face_width, face_height, n_channels, face))
-                            hands_1.append(resize_frame(
-                                hand_width, hand_height, n_channels, hand_1))
-                            hands_2.append(resize_frame(
-                                hand_width, hand_height, n_channels, hand_2))
-                            frames_used.append(frame_number)
-                            bbox_coords.append(flatten_bbox_coords)
-                            position_features = temporary_position_features
-                    else:
-                        insert_index = bisect.bisect_left(
-                            frames_used, frame_number)
-
-                        temporary_position_features = bbox_utils.get_position_features(
-                            temporary_position_features, triangle_features, insert_index)
-
-                        temporary_position_features = bbox_utils.get_moviment_features(
-                            temporary_position_features, insert_index)
-
-                        moviment_threshold_history.append(
-                            temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
-
-                        if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
-                            frames_counter -= 1
-                        else:
-                            video.insert(insert_index, resize_frame(
-                                height, width, n_channels, frame))
-                            triangle_features_list.insert(insert_index, list(
-                                map(lambda key: triangle_features[key], triangle_features)))
-                            faces.insert(insert_index, resize_frame(
-                                face_width, face_height, n_channels, face))
-                            hands_1.insert(insert_index, resize_frame(
-                                hand_width, hand_height, n_channels, hand_1))
-                            hands_2.insert(insert_index, resize_frame(
-                                hand_width, hand_height, n_channels, hand_2))
-                            bbox_coords.insert(
-                                insert_index, flatten_bbox_coords)
-
-                            frames_used.insert(insert_index, frame_number)
-                            position_features = temporary_position_features
-
-                    last_frame = [] if last_position_used else frame
-                    last_positions = {} if last_position_used else bounding_boxes
-                    last_position_used = False
-
-                    frames_counter += 1
-            else:
-                get_next_frame(cap)
-
-    print(str(i + 1) + ' of ' + str(
-        number_of_videos) + ' videos within batch processed: ', file_path)
-
-    faces = fill_data_and_convert_to_np(
-        faces, n_frames, face_height, face_width)
-    hands_1 = fill_data_and_convert_to_np(
-        hands_1, n_frames, hand_height, hand_width)
-    hands_2 = fill_data_and_convert_to_np(
-        hands_2, n_frames, hand_height, hand_width)
-    video = fill_data_and_convert_to_np(video, n_frames, height, width)
-    triangle_features_list = fill_data_and_convert_to_np(
-        triangle_features_list, n_frames, 1, 11, False)
-    bbox_coords = fill_data_and_convert_to_np(
-        bbox_coords, n_frames, 1, 12, False)
-
-    cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video
-
-
-def get_flatten_bbox_array(bounding_boxes):
-    flatten_bbox_coords = []
-    for bbox_pos in list(bounding_boxes.values()):
-        flatten_bbox_coords.extend(list(bbox_pos.values()))
-    return flatten_bbox_coords
-
-
-def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
-    padding_amount = n_frames - len(data)
-    if padding_amount > 5:
-        raise Exception('Padding amount is too high!')
-
-    while len(data) < n_frames:
-        if is_image:
-            data.append(np.zeros((height, width, 3), dtype='uint8'))
-        else:
-            data.append([0] * width)
-
-    return np.array(data)
-
-
-def resize_frame(height, width, n_channels, frame):
-    image = np.zeros((height, width, n_channels), dtype='uint8')
-
-    for n_channel in range(n_channels):
-        resized_image = cv2.resize(
-            frame[:, :, n_channel], (width, height))
-        image[:, :, n_channel] = resized_image
-
-    return image
-
-
-def convert_video_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
-    """Generates an ndarray from multiple video files given by filenames.
-    Implementation chooses frame step size automatically for a equal separation distribution of the video images.
-
-    Args:
-      filenames: a list containing the full paths to the video files
-      width: width of the video(s)
-      height: height of the video(s)
-      n_frames_per_video: integer value of string. Specifies the number of frames extracted from each video. If set to 'all', all frames are extracted from the
-      videos and stored in the tfrecord. If the number is lower than the number of available frames, the subset of extracted frames will be selected equally
-      spaced over the entire video playtime.
-      n_channels: number of channels to be used for the tfrecords
-      type: processing type for video data
-
-    Returns:
-      if no optical flow is used: ndarray(uint8) of shape (v,i,h,w,c) with
-      v=number of videos, i=number of images, (h,w)=height and width of image,
-      c=channel, if optical flow is used: ndarray(uint8) of (v,i,h,w,
-      c+1)
-    """
-
-    number_of_videos = len(filenames)
-
-    data = []
-    triangle_data = []
-    final_labels = []
-    centroids_positions = []
-    videos = []
-    error_videos = []
-
-    for i, file in enumerate(filenames):
-        try:
-            faces, hands_1, hands_2, triangle_features, centroids, video = video_file_to_ndarray(i=i, file_path=file,
-                                                                                                 n_frames_per_video=n_frames_per_video,
-                                                                                                 height=height, width=width,
-                                                                                                 number_of_videos=number_of_videos)
-            data.append([faces, hands_1, hands_2])
-            videos.append(video)
-            triangle_data.append(triangle_features)
-            centroids_positions.append(centroids)
-            final_labels.append(labels[i])
-        except Exception as e:
-            print('Error to process video {}'.format(file))
-            print(e)
-            error_videos.append(file)
-
-    return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels, error_videos
-
-
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train_v2',
-        n_videos_in_record=10, n_frames_per_video=16, file_suffix='*.mp4',
+        n_videos_in_record=5, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=False)
