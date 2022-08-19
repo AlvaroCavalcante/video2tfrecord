@@ -1,88 +1,12 @@
-import os
 import math
 import copy
-import time
 import bisect
 
-import cv2
 import numpy as np
 
 import hand_face_detection
 from utils import bounding_box_utils as bbox_utils
-
-
-def resize_frame(height, width, n_channels, frame):
-    image = np.zeros((height, width, n_channels), dtype='uint8')
-
-    for n_channel in range(n_channels):
-        resized_image = cv2.resize(
-            frame[:, :, n_channel], (width, height))
-        image[:, :, n_channel] = resized_image
-
-    return image
-
-
-def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
-    stop = False
-
-    if not take_all_frames:
-        # repeat with smaller step size
-        steps -= 1
-
-    if capture_restarted or steps <= 0:
-        stop = True
-        return stop, cap, steps, capture_restarted
-
-    capture_restarted = True
-    print('reducing step size due to error for video: ', file_path)
-    cap.release()
-    cap, _ = get_video_capture_and_frame_count(file_path)
-    # wait for image retrieval to be ready
-    time.sleep(.5)
-
-    return stop, cap, steps, capture_restarted
-
-
-def get_frames_skip(frame_count):
-    if frame_count <= 40:
-        return 4
-    elif frame_count <= 50:
-        return 6
-
-    return 8
-
-
-def get_video_capture_and_frame_count(path):
-    assert os.path.isfile(
-        path), "Couldn't find video file:" + path + ". Skipping video."
-    cap = None
-    if path:
-        cap = cv2.VideoCapture(path)
-
-    assert cap is not None, "Couldn't load video capture:" + path + ". Skipping video."
-
-    # compute meta data of video
-    if hasattr(cv2, 'cv'):
-        frame_count = int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
-    else:
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    # remove last frames
-    frame_count = frame_count - get_frames_skip(frame_count)
-
-    return cap, frame_count
-
-
-def get_next_frame(cap):
-    ret, frame = cap.read()
-    if not ret:
-        return None
-
-    frame = np.asarray(frame)
-    if frame is not None:
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    return frame
+from utils import frame_processing_utils as fp_utils
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
@@ -110,7 +34,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     hand_width, hand_height = 100, 100
     face_width, face_height = 100, 100
 
-    cap, frame_count = get_video_capture_and_frame_count(file_path)
+    cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
 
     take_all_frames = True if n_frames_per_video == 'all' else False
 
@@ -145,13 +69,13 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     while restart:
         # initial frames to skip in sign language video
-        frames_to_skip = get_frames_skip(frame_count)
+        frames_to_skip = fp_utils.get_frames_skip(frame_count)
 
         steps = frame_count if take_all_frames else int(
             math.floor((frame_count - frames_to_skip) / n_frames_per_video))
 
         if frames_counter > 0:
-            stop, cap, steps, capture_restarted = repeat_image_retrieval(
+            stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                 cap, file_path, take_all_frames, steps, capture_restarted)
 
             if stop:
@@ -160,15 +84,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
         for frame_number in range(frame_count):
             if frames_to_skip > 0:  # skipping the first frames of the sign language video
-                get_next_frame(cap)
+                fp_utils.get_next_frame(cap)
                 frames_to_skip -= 1
                 continue
             if math.floor(frame_number % steps) == 0 or take_all_frames:
-                frame = get_next_frame(cap)
+                frame = fp_utils.get_next_frame(cap)
 
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
                 if frame is None and frames_counter < n_frames:
-                    stop, cap, steps, capture_restarted = repeat_image_retrieval(
+                    stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                         cap, file_path, take_all_frames, steps, capture_restarted)
 
                     if stop:
@@ -218,15 +142,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
                         else:
-                            video.append(resize_frame(
+                            video.append(fp_utils.resize_frame(
                                 height, width, n_channels, frame))
                             triangle_features_list.append(
                                 list(map(lambda key: triangle_features[key], triangle_features)))
-                            faces.append(resize_frame(
+                            faces.append(fp_utils.resize_frame(
                                 face_width, face_height, n_channels, face))
-                            hands_1.append(resize_frame(
+                            hands_1.append(fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_1))
-                            hands_2.append(resize_frame(
+                            hands_2.append(fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
                             frames_used.append(frame_number)
                             bbox_coords.append(flatten_bbox_coords)
@@ -247,15 +171,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
                             frames_counter -= 1
                         else:
-                            video.insert(insert_index, resize_frame(
+                            video.insert(insert_index, fp_utils.resize_frame(
                                 height, width, n_channels, frame))
                             triangle_features_list.insert(insert_index, list(
                                 map(lambda key: triangle_features[key], triangle_features)))
-                            faces.insert(insert_index, resize_frame(
+                            faces.insert(insert_index, fp_utils.resize_frame(
                                 face_width, face_height, n_channels, face))
-                            hands_1.insert(insert_index, resize_frame(
+                            hands_1.insert(insert_index, fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_1))
-                            hands_2.insert(insert_index, resize_frame(
+                            hands_2.insert(insert_index, fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_2))
                             bbox_coords.insert(
                                 insert_index, flatten_bbox_coords)
@@ -269,7 +193,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     frames_counter += 1
             else:
-                get_next_frame(cap)
+                fp_utils.get_next_frame(cap)
 
     print(str(i + 1) + ' of ' + str(
         number_of_videos) + ' videos within batch processed: ', file_path)
