@@ -6,6 +6,7 @@
  an equal separation distribution of the video images. Implementation supports Optical Flow
  (currently OpenCV's calcOpticalFlowFarneback) as an additional 4th channel.
 """
+import copy
 import os
 import time
 import math
@@ -424,17 +425,17 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     flatten_bbox_coords = get_flatten_bbox_array(
                         bounding_boxes)
 
-                    # cv2.imwrite(
-                    #     f'/home/alvaro/Desktop/video2tfrecord/src/video_sample/sample_{frame_number}.jpg', cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    temporary_position_features = copy.deepcopy(position_features)
+
 
                     if not capture_restarted:
-                        position_features = bbox_utils.get_position_features(
-                            position_features, triangle_features)
-                        position_features = bbox_utils.get_moviment_features(
-                            position_features)
+                        temporary_position_features = bbox_utils.get_position_features(
+                            temporary_position_features, triangle_features)
+                        temporary_position_features = bbox_utils.get_moviment_features(
+                            temporary_position_features)
 
                         moviment_threshold_history.append(
-                            position_features['both_hands_moviment_hist'][-1] < 0.0005)
+                            temporary_position_features['both_hands_moviment_hist'][-1] < 5)
 
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
@@ -451,18 +452,19 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 hand_width, hand_height, n_channels, hand_2))
                             frames_used.append(frame_number)
                             bbox_coords.append(flatten_bbox_coords)
+                            position_features = temporary_position_features
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
 
-                        position_features = bbox_utils.get_position_features(
-                            position_features, triangle_features, insert_index)
+                        temporary_position_features = bbox_utils.get_position_features(
+                            temporary_position_features, triangle_features, insert_index)
 
-                        position_features = bbox_utils.get_moviment_features(
-                            position_features, insert_index)
+                        temporary_position_features = bbox_utils.get_moviment_features(
+                            temporary_position_features, insert_index)
 
                         moviment_threshold_history.append(
-                            position_features['both_hands_moviment_hist'][insert_index] < 0.0005)
+                            temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
 
                         if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
                             frames_counter -= 1
@@ -481,6 +483,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 insert_index, flatten_bbox_coords)
 
                             frames_used.insert(insert_index, frame_number)
+                            position_features = temporary_position_features
 
                     last_frame = [] if last_position_used else frame
                     last_positions = {} if last_position_used else bounding_boxes

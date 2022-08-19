@@ -105,11 +105,11 @@ def get_position_features(position_features, triangle_features, insert_index=Non
     to check if there's any moviment in the frame.
     """
 
-    both_hands_position = triangle_features['distance_1'] + \
-        triangle_features['distance_2']
+    both_hands_position = triangle_features['default_distance_1'] + \
+        triangle_features['default_distance_2']
 
-    hand_1_position = triangle_features['distance_1']
-    hand_2_position = triangle_features['distance_2']
+    hand_1_position = triangle_features['default_distance_1']
+    hand_2_position = triangle_features['default_distance_2']
 
     if not insert_index:
         position_features['both_hands_position'].append(both_hands_position)
@@ -134,11 +134,11 @@ def get_moviment_features(position_features, insert_index=None):
             position_features['both_hands_position'][-2]
             )
 
-            hand1_mov = position_features['hand1_position'][-1] - \
-                position_features['hand1_position'][-2]
+            hand1_mov = (position_features['hand1_position'][-1] - \
+                position_features['hand1_position'][-2]) / max(position_features['hand1_position'])
 
-            hand2_mov = position_features['hand2_position'][-1] - \
-                position_features['hand2_position'][-2]
+            hand2_mov = (position_features['hand2_position'][-1] - \
+                position_features['hand2_position'][-2]) / max(position_features['hand2_position'])
 
             position_features['both_hands_moviment_hist'].append(
                 both_hands_mov)
@@ -150,11 +150,11 @@ def get_moviment_features(position_features, insert_index=None):
             position_features['both_hands_position'][insert_index-1]
             )
 
-            hand1_mov = position_features['hand1_position'][insert_index] - \
-                position_features['hand1_position'][insert_index-1]
+            hand1_mov = (position_features['hand1_position'][insert_index] - \
+                position_features['hand1_position'][insert_index-1]) / max(position_features['hand1_position'])
 
-            hand2_mov = position_features['hand2_position'][insert_index] - \
-                position_features['hand2_position'][insert_index-1]
+            hand2_mov = (position_features['hand2_position'][insert_index] - \
+                position_features['hand2_position'][insert_index-1]) / max(position_features['hand1_position'])
 
             position_features['both_hands_moviment_hist'].insert(
                 insert_index, both_hands_mov)

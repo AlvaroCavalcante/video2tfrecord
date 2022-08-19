@@ -54,6 +54,9 @@ def compute_triangle_features(centroids):
         triangle_features = {}
 
         d1, d2, d3 = compute_centroids_distances(centroids)
+        triangle_features.update(
+            {'default_distance_1': d1, 'default_distance_2': d2, 'default_distance_3': d3})
+
         perimeter = d1 + d2 + d3
         norm_semi_perimeter = 0.5  # considering that perimeter is 1
 
