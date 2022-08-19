@@ -106,15 +106,15 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         data = None
         labels = get_data_label(batch, class_labels)
 
-        data, videos, triangle_data, centroid_positions, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
-                                                                                                                    n_frames_per_video=n_frames_per_video, labels=labels)
+        data, videos, triangle_data, bbox_positions, moviment_data, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
+                                                                                                                               n_frames_per_video=n_frames_per_video, labels=labels)
 
         batch = list(filter(lambda file: file not in error_videos, batch))
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
-        save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, batch, destination_path,
+        save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, batch, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
         checkpoint_df = save_new_checkpoint(checkpoint_df, batch, error_videos)
@@ -158,7 +158,7 @@ def remove_from_checkpoint(checkpoint_df, filenames):
     return filenames
 
 
-def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, filenames, destination_path, fragment_size,
+def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, filenames, destination_path, fragment_size,
                             current_batch_number, total_batch_number, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragment_size.
 
@@ -194,7 +194,8 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
             hand_2_stream = 'hand_2/' + str(image_count)
             triangle_stream = 'triangle_data/' + str(image_count)
             video_stream = 'video/' + str(image_count)
-            centroid_stream = 'centroid/' + str(image_count)
+            bbox_stream = 'centroid/' + str(image_count)
+            moviment_stream = 'moviment/' + str(image_count)
 
             face_image = data[video_count, 0,
                               image_count, :, :, :].astype('uint8')
@@ -228,11 +229,14 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, centroid_positions, fil
             feature['depth'] = _int64_feature(num_channels)
             feature['label'] = _int64_feature(labels[video_count])
 
-            feature[centroid_stream] = _float_list_feature(
-                centroid_positions[video_count][image_count])
+            feature[bbox_stream] = _float_list_feature(
+                bbox_positions[video_count][image_count])
 
             feature[triangle_stream] = _float_list_feature(
                 triangle_data[video_count][image_count])
+
+            feature[moviment_stream] = _float_list_feature(
+                moviment_data[video_count][image_count])
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

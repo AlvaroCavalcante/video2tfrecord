@@ -62,6 +62,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         'both_hands_position': [],
         'hand1_moviment_hist': [],
         'hand2_moviment_hist': [],
+        'hand1_2_moviment_hist': [],
         'both_hands_moviment_hist': []
     }
 
@@ -144,8 +145,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         else:
                             video.append(fp_utils.resize_frame(
                                 height, width, n_channels, frame))
+
+                            [triangle_features.pop(key) for key in [
+                                'default_distance_1', 'default_distance_2', 'default_distance_3']]
                             triangle_features_list.append(
                                 list(map(lambda key: triangle_features[key], triangle_features)))
+
                             faces.append(fp_utils.resize_frame(
                                 face_width, face_height, n_channels, face))
                             hands_1.append(fp_utils.resize_frame(
@@ -173,6 +178,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         else:
                             video.insert(insert_index, fp_utils.resize_frame(
                                 height, width, n_channels, frame))
+
+                            [triangle_features.pop(key) for key in [
+                                'default_distance_1', 'default_distance_2', 'default_distance_3']]
                             triangle_features_list.insert(insert_index, list(
                                 map(lambda key: triangle_features[key], triangle_features)))
                             faces.insert(insert_index, fp_utils.resize_frame(
@@ -209,9 +217,11 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         triangle_features_list, n_frames, 1, 11, False)
     bbox_coords = fill_data_and_convert_to_np(
         bbox_coords, n_frames, 1, 12, False)
+    hands_moviment = fill_data_and_convert_to_np(
+        position_features['hand1_2_moviment_hist'], n_frames, 1, 2, False)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video
+    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment
 
 
 def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
@@ -240,24 +250,26 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
     data = []
     triangle_data = []
     final_labels = []
-    centroids_positions = []
+    bbox_positions = []
+    moviment_data = []
     videos = []
     error_videos = []
 
     for i, file in enumerate(filenames):
         try:
-            faces, hands_1, hands_2, triangle_features, centroids, video = video_file_to_ndarray(i=i, file_path=file,
+            faces, hands_1, hands_2, triangle_features, centroids, video, hands_moviment = video_file_to_ndarray(i=i, file_path=file,
                                                                                                  n_frames_per_video=n_frames_per_video,
                                                                                                  height=height, width=width,
                                                                                                  number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
             videos.append(video)
             triangle_data.append(triangle_features)
-            centroids_positions.append(centroids)
+            bbox_positions.append(centroids)
+            moviment_data.append(hands_moviment)
             final_labels.append(labels[i])
         except Exception as e:
             print('Error to process video {}'.format(file))
             print(e)
             error_videos.append(file)
 
-    return np.array(data), np.array(videos), np.array(triangle_data), np.array(centroids_positions), final_labels, error_videos
+    return np.array(data), np.array(videos), np.array(triangle_data), np.array(bbox_positions), np.array(moviment_data), final_labels, error_videos
