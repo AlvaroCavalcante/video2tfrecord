@@ -116,3 +116,5 @@ ENV/
 /errors_db_autsl
 /object_detection_db_autsl
 /example
+
+*.dat
