@@ -87,6 +87,10 @@ def infer_images(image, label_map_path, heigth, width, file_name):
 
 
 def check_last_position_use(bounding_boxes, last_positions):
+    """
+    This method checks if there's any missing bounding box in the dict. If this
+    is the case, then we try to use the last bounding box of the previous frame.
+    """
     last_positions_use = []
 
     for class_name in bounding_boxes:

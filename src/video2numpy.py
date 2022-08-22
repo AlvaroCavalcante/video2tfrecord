@@ -127,6 +127,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     if not triangle_features:
                         continue
 
+                    face = fp_utils.resize_frame(
+                        face_width, face_height, n_channels, face)
+
                     face_keypoints = keypoint_utils.get_facial_keypoints(
                         face, last_positions, last_frame)
 
@@ -159,8 +162,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             triangle_features_list.append(
                                 list(map(lambda key: triangle_features[key], triangle_features)))
 
-                            faces.append(fp_utils.resize_frame(
-                                face_width, face_height, n_channels, face))
+                            faces.append(face)
                             hands_1.append(fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_1))
                             hands_2.append(fp_utils.resize_frame(
@@ -192,8 +194,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 'default_distance_1', 'default_distance_2', 'default_distance_3']]
                             triangle_features_list.insert(insert_index, list(
                                 map(lambda key: triangle_features[key], triangle_features)))
-                            faces.insert(insert_index, fp_utils.resize_frame(
-                                face_width, face_height, n_channels, face))
+                            faces.insert(insert_index, face)
                             hands_1.insert(insert_index, fp_utils.resize_frame(
                                 hand_width, hand_height, n_channels, hand_1))
                             hands_2.insert(insert_index, fp_utils.resize_frame(

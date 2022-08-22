@@ -194,7 +194,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, movimen
             hand_2_stream = 'hand_2/' + str(image_count)
             triangle_stream = 'triangle_data/' + str(image_count)
             video_stream = 'video/' + str(image_count)
-            bbox_stream = 'centroid/' + str(image_count)
+            bbox_stream = 'bbox/' + str(image_count)
             moviment_stream = 'moviment/' + str(image_count)
             keypoint_stream = 'keypoint/' + str(image_count)
 
