@@ -57,8 +57,10 @@ def read_tfrecord(example_proto):
     video_name = []
     triangle_stream_arr = []
     triangle_data = []
-    centroids = []
+    bouding_boxes = []
     video = []
+    keypoints = []
+    moviment = []
 
     apply_proba_dict = get_apply_proba_dict()
     range_aug_dict = get_range_aug_dict(80)
@@ -70,7 +72,9 @@ def read_tfrecord(example_proto):
         hand_2_stream = 'hand_2/' + str(image_count)
         video_stream = 'video/' + str(image_count)
         triangle_stream = 'triangle_data/' + str(image_count)
-        centroid_stream = 'centroid/' + str(image_count)
+        bbox_stream = 'bbox/' + str(image_count)
+        moviment_stream = 'moviment/' + str(image_count)
+        keypoint_stream = 'keypoint/' + str(image_count)
 
         feature_dict = {
             face_stream: tf.io.FixedLenFeature([], tf.string),
@@ -78,7 +82,9 @@ def read_tfrecord(example_proto):
             hand_2_stream: tf.io.FixedLenFeature([], tf.string),
             video_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_stream: tf.io.VarLenFeature(tf.float32),
-            centroid_stream: tf.io.VarLenFeature(tf.float32),
+            bbox_stream: tf.io.VarLenFeature(tf.float32),
+            moviment_stream: tf.io.VarLenFeature(tf.float32),
+            keypoint_stream: tf.io.VarLenFeature(tf.float32),
             'video_name': tf.io.FixedLenFeature([], tf.string),
             'height': tf.io.FixedLenFeature([], tf.int64),
             'width': tf.io.FixedLenFeature([], tf.int64),
@@ -90,9 +96,14 @@ def read_tfrecord(example_proto):
             example_proto, features=feature_dict)
 
         triangle_data.append(tf.squeeze(tf.reshape(
-            features[triangle_stream].values, (1, 13))))
+            features[triangle_stream].values, (1, 11))))
 
-        centroids.append(tf.reshape(features[centroid_stream].values, (3, 2)))
+        bouding_boxes.append(tf.reshape(features[bbox_stream].values, (1, 12)))
+
+        keypoints.append(tf.squeeze(tf.reshape(
+            features[keypoint_stream].values, (1, 136))))
+        moviment.append(tf.squeeze(
+            tf.reshape(features[moviment_stream].values, (1, 2))))
 
         triangle_stream_arr.append(triangle_stream)
 
@@ -104,8 +115,8 @@ def read_tfrecord(example_proto):
         hand_2_image = get_image(features[hand_2_stream], width, height)
         image = get_image(features[video_stream], 512, 512)
 
-        face_image = transform_image(
-            face_image, width, apply_proba_dict, range_aug_dict, seed)
+        # face_image = transform_image(
+        #     face_image, width, apply_proba_dict, range_aug_dict, seed)
         hand_1_image = transform_image(
             hand_1_image, width, apply_proba_dict, range_aug_dict, seed, True)
         hand_2_image = transform_image(
@@ -118,7 +129,7 @@ def read_tfrecord(example_proto):
         video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, triangle_data, centroids, video, label, video_name, triangle_stream_arr
+    return [hand_1, hand_2], face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints, moviment
 
 
 def get_image(img, width, height):
@@ -159,7 +170,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/example/train/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/example/train_v2/*.tfrecords')
 row = 4
 col = 4
 
@@ -179,7 +190,7 @@ def draw_triangle_on_img(centroids, img):
     return img
 
 
-def plot_figure(row, col, img_seq, centroids=None, triangle=False):
+def plot_figure(row, col, img_seq, centroids=None, triangle=False, keypoints=[]):
     for j in range(row*col):
         plt.subplot(row, col, j+1)
         plt.axis('off')
@@ -188,7 +199,13 @@ def plot_figure(row, col, img_seq, centroids=None, triangle=False):
                 centroids[j], np.array(img_seq[j]))
             plt.imshow(triangle_img)
         else:
-            plt.imshow(np.array(img_seq[j]))
+            img = np.array(img_seq[j])
+            if len(keypoints):
+                for i in range(0, len(keypoints[j]), 2):
+                    cv2.circle(
+                        img, (keypoints[j][i].numpy(), keypoints[j][i+1].numpy()), 2, (0, 255, 0), -1)
+
+            plt.imshow(img)
     plt.show()
 
 
@@ -201,18 +218,18 @@ data = []
 # pred_incorrect = pred_df[pred_df['correct_prediction'] == False]
 # pred_incorrect = list(pred_incorrect['video_names'].values)
 
-for (hand_seq, face_seq, triangle_data, centroids, video_imgs, label, video_name_list, triangle_stream) in dataset:
+for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, keypoints, moviment) in dataset:
     for i in range(video_name_list.shape[0]):
         if plot_images:
-            plot_figure(row, col, video_imgs[i], centroids[i], True)
+            # plot_figure(row, col, video_imgs[i], bboxes[i], True)
             plot_figure(row, col, hand_seq[i][0])
             plot_figure(row, col, hand_seq[i][1])
-            plot_figure(row, col, face_seq[i])
+            plot_figure(row, col, face_seq[i], keypoints=keypoints[i])
         else:
             for j, video_name in enumerate(video_name_list[i]):
                 video_name = video_name.numpy().decode('utf-8')
                 video_img = video_imgs[i][j]
-                img_centroids = centroids[i][j]
+                img_centroids = bboxes[i][j]
                 triangle_img = draw_triangle_on_img(
                     img_centroids, np.array(video_img))
 
