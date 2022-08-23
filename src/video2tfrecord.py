@@ -265,5 +265,5 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train', 'example/train_v2',
-        n_videos_in_record=5, n_frames_per_video=16, file_suffix='*.mp4',
+        n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
         width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train_labels.csv', reset_checkpoint=False)
