@@ -60,7 +60,6 @@ def read_tfrecord(example_proto):
     bouding_boxes = []
     video = []
     keypoints = []
-    moviment = []
 
     apply_proba_dict = get_apply_proba_dict()
     range_aug_dict = get_range_aug_dict(80)
@@ -95,15 +94,18 @@ def read_tfrecord(example_proto):
         features = tf.io.parse_single_example(
             example_proto, features=feature_dict)
 
-        triangle_data.append(tf.squeeze(tf.reshape(
-            features[triangle_stream].values, (1, 11))))
+        moviment = tf.squeeze(
+            tf.reshape(features[moviment_stream].values, (1, 2)))
+
+        triangle = tf.squeeze(tf.reshape(
+            features[triangle_stream].values, (1, 11)))
+
+        triangle_data.append(tf.concat([triangle, moviment], axis=0))
 
         bouding_boxes.append(tf.reshape(features[bbox_stream].values, (1, 12)))
 
         keypoints.append(tf.squeeze(tf.reshape(
             features[keypoint_stream].values, (1, 136))))
-        moviment.append(tf.squeeze(
-            tf.reshape(features[moviment_stream].values, (1, 2))))
 
         triangle_stream_arr.append(triangle_stream)
 
@@ -129,7 +131,7 @@ def read_tfrecord(example_proto):
         video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints, moviment
+    return [hand_1, hand_2], face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints
 
 
 def get_image(img, width, height):
@@ -218,7 +220,7 @@ data = []
 # pred_incorrect = pred_df[pred_df['correct_prediction'] == False]
 # pred_incorrect = list(pred_incorrect['video_names'].values)
 
-for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, keypoints, moviment) in dataset:
+for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, keypoints) in dataset:
     for i in range(video_name_list.shape[0]):
         if plot_images:
             # plot_figure(row, col, video_imgs[i], bboxes[i], True)
