@@ -170,6 +170,6 @@ def get_moviment_features(position_features, insert_index=None):
         position_features['both_hands_moviment_hist'].append(0)
         position_features['hand1_moviment_hist'].append(0)
         position_features['hand2_moviment_hist'].append(0)
-        position_features['hand1_2_moviment_hist'].append(0)
+        position_features['hand1_2_moviment_hist'].append([0, 0])
 
     return position_features
