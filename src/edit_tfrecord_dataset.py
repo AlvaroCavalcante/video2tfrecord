@@ -10,6 +10,7 @@ This script is used to normalized the triangle values. We modified
 the tfrecord values to avoid reprocessing the entire dataset.
 """
 
+
 def read_tfrecord(example_proto):
     feature_list = []
     for image_count in range(16):
@@ -18,7 +19,9 @@ def read_tfrecord(example_proto):
         hand_2_stream = 'hand_2/' + str(image_count)
         video_stream = 'video/' + str(image_count)
         triangle_stream = 'triangle_data/' + str(image_count)
-        centroid_stream = 'centroid/' + str(image_count)
+        bbox_stream = 'bbox/' + str(image_count)
+        moviment_stream = 'moviment/' + str(image_count)
+        keypoint_stream = 'keypoint/' + str(image_count)
 
         feature_dict = {
             face_stream: tf.io.FixedLenFeature([], tf.string),
@@ -26,7 +29,9 @@ def read_tfrecord(example_proto):
             hand_2_stream: tf.io.FixedLenFeature([], tf.string),
             video_stream: tf.io.FixedLenFeature([], tf.string),
             triangle_stream: tf.io.VarLenFeature(tf.float32),
-            centroid_stream: tf.io.VarLenFeature(tf.float32),
+            bbox_stream: tf.io.VarLenFeature(tf.float32),
+            moviment_stream: tf.io.VarLenFeature(tf.float32),
+            keypoint_stream: tf.io.VarLenFeature(tf.float32),
             'video_name': tf.io.FixedLenFeature([], tf.string),
             'height': tf.io.FixedLenFeature([], tf.int64),
             'width': tf.io.FixedLenFeature([], tf.int64),
@@ -79,7 +84,7 @@ def _float_list_feature(value):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/example/validation/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/example/val_v2/*.tfrecords')
 
 
 for file_n, tfrecord in enumerate(tf_record_path):
@@ -87,34 +92,25 @@ for file_n, tfrecord in enumerate(tf_record_path):
     writer = None
 
     for example in tf.compat.v1.io.tf_record_iterator(tfrecord):
-        result = tf.train.Example.FromString(example)
+        record_data = tf.train.Example.FromString(example)
+        temp_record_data = tf.train.Example.FromString(example)
 
-        for i in range(16):
+        for i in range(15):
             try:
-                triangle_data = result.features.feature[f'triangle_data/{i}'].float_list.value
-                perimeter = triangle_data[3]
-
-                d1, d2, d3 = triangle_data[0]/perimeter, triangle_data[1] / \
-                    perimeter, triangle_data[2]/perimeter
-
-                norm_area = math.sqrt(
-                    (0.5 * (0.5 - d1) * (0.5 - d2) * (0.5 - d3)))
-                norm_heigth = 2 * norm_area / (d3 + 1e-10)
-
-                new_triangle = _float_list_feature(
-                    np.array([d1, d2, d3, norm_area, norm_heigth]+triangle_data[7:]))
-                result.features.feature[f"triangle_data/{i}"].CopyFrom(
-                    new_triangle)
+                moviment_data = record_data.features.feature[f'moviment/{i}'].float_list.value
+                temp_record_data.features.feature[f'moviment/{i+1}'].CopyFrom(
+                    _float_list_feature(moviment_data)
+                )
             except Exception as e:
                 print(e)
-                new_triangle = _float_list_feature(np.array([0]*11))
-                result.features.feature[f"triangle_data/{i}"].CopyFrom(
-                    new_triangle)
 
-        examples.append(result)
+        temp_record_data.features.feature[f'moviment/0'].CopyFrom(
+            _float_list_feature([0, 0])
+        )
+        examples.append(temp_record_data)
 
     writer = get_tfrecord_writer(
-        '/home/alvaro/Desktop/video2tfrecord/example/val_norm', file_n, len(tf_record_path), writer)
+        '/home/alvaro/Desktop/video2tfrecord/example/val_v2_edited', file_n, len(tf_record_path), writer)
 
     for rec in examples:
         writer.write(rec.SerializeToString())
