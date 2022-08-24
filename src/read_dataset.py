@@ -172,7 +172,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/example/train_v2/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/example/train_v2_edited/*.tfrecords')
 row = 4
 col = 4
 
