@@ -81,6 +81,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                 cap, file_path, take_all_frames, steps, capture_restarted)
 
+            last_frame = []
+            last_positions = {}
+            last_position_used = False
+
             if stop:
                 restart = False
                 break
@@ -97,6 +101,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                 if frame is None and frames_counter < n_frames:
                     stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                         cap, file_path, take_all_frames, steps, capture_restarted)
+
+                    last_frame = []
+                    last_positions = {}
+                    last_position_used = False
 
                     if stop:
                         restart = False
