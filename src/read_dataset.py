@@ -54,6 +54,7 @@ def read_tfrecord(example_proto):
     face = []
     hand_1 = []
     hand_2 = []
+    hands = []
     video_name = []
     triangle_stream_arr = []
     triangle_data = []
@@ -125,13 +126,15 @@ def read_tfrecord(example_proto):
             hand_2_image, width, apply_proba_dict, range_aug_dict, seed, True)
 
         face.append(face_image)
-        hand_1.append(hand_1_image)
-        hand_2.append(hand_2_image)
+        # hand_1.append(hand_1_image)
+        # hand_2.append(hand_2_image)
+        hands.append(tf.concat([hand_1_image, hand_2_image], axis=1))
+
         video.append(image)
         video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return [hand_1, hand_2], face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints
+    return hands, face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints
 
 
 def get_image(img, width, height):
@@ -224,8 +227,8 @@ for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_li
     for i in range(video_name_list.shape[0]):
         if plot_images:
             # plot_figure(row, col, video_imgs[i], bboxes[i], True)
-            plot_figure(row, col, hand_seq[i][0])
-            plot_figure(row, col, hand_seq[i][1])
+            # plot_figure(row, col, hand_seq[i][0])
+            plot_figure(row, col, hand_seq[i])
             plot_figure(row, col, face_seq[i], keypoints=keypoints[i])
         else:
             for j, video_name in enumerate(video_name_list[i]):
