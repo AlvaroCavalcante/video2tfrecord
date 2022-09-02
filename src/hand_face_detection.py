@@ -91,21 +91,21 @@ def check_last_position_use(bounding_boxes, last_positions):
     This method checks if there's any missing bounding box in the dict. If this
     is the case, then we try to use the last bounding box of the previous frame.
     """
-    last_positions_use = []
+    last_positions_used = []
 
     for class_name in bounding_boxes:
         bbox = bounding_boxes.get(class_name)
         if bbox:
-            last_positions_use.append(False)
+            last_positions_used.append('')
         else:
             bbox = last_positions.get(class_name)
             if bbox:
                 bounding_boxes[class_name] = bbox
-                last_positions_use.append(True)
+                last_positions_used.append(class_name)
             else:
-                last_positions_use.append(False)
+                last_positions_used.append('')
 
-    return bounding_boxes, last_positions_use
+    return bounding_boxes, last_positions_used
 
 
 def detect_visual_cues_from_image(**kwargs):
@@ -114,14 +114,12 @@ def detect_visual_cues_from_image(**kwargs):
     _, bounding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
-    bounding_boxes, last_positions_use = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
+    bounding_boxes, last_positions_used = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
     bounding_boxes = bbox_utils.align_class_names(bounding_boxes, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2 = get_image_segments(
-        input_image, bounding_boxes, kwargs.get('last_frame'), last_positions_use)
+        input_image, bounding_boxes, kwargs.get('last_frame'), last_positions_used)
 
     triangle_features = compute_features_and_draw_lines(bounding_boxes)
 
-    last_position_used = any(last_positions_use)
-
-    return face_segment, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, bounding_boxes, last_positions_used

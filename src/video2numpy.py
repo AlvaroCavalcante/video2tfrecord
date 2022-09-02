@@ -51,7 +51,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     last_frame = []
     last_positions = {}
-    last_position_used = False
 
     frames_counter = 0
     capture_restarted = False
@@ -83,7 +82,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
             last_frame = []
             last_positions = {}
-            last_position_used = False
 
             if stop:
                 restart = False
@@ -104,7 +102,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     last_frame = []
                     last_positions = {}
-                    last_position_used = False
 
                     if stop:
                         restart = False
@@ -122,7 +119,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
-                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
+                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_positions_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='src/utils/label_map.pbtxt',
                         height=height,
@@ -142,6 +139,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         face, last_positions, last_frame)
 
                     if not face_keypoints:
+                        print('No face keypoints found!')
                         continue
 
                     flatten_bbox_coords = get_flatten_bbox_array(
@@ -215,9 +213,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             frames_used.insert(insert_index, frame_number)
                             position_features = temporary_position_features
 
-                    last_frame = [] if last_position_used else frame
-                    last_positions = {} if last_position_used else bounding_boxes
-                    last_position_used = False
+                    last_positions = get_last_positions(
+                        last_positions, position_features, bounding_boxes, last_positions_used)
+                    last_frame = frame
 
                     frames_counter += 1
             else:
@@ -244,6 +242,21 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints
+
+
+def get_last_positions(last_positions, position_features, bounding_boxes, last_positions_used):
+    higher_moviment_hand = 'hand_1' if sum([abs(mov) for mov in position_features['hand1_moviment_hist']]) > sum(
+        [abs(mov) for mov in position_features['hand2_moviment_hist']]) else 'hand_2'
+
+    last_position_used = any(
+        map(lambda pos: pos == higher_moviment_hand, last_positions_used))
+
+    if last_position_used:
+        last_positions[higher_moviment_hand] = None
+    else:
+        last_positions = bounding_boxes
+
+    return last_positions
 
 
 def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
