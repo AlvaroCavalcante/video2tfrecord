@@ -4,6 +4,7 @@ import cv2
 
 from utils import triangle_utils
 from utils import bounding_box_utils as bbox_utils
+from utils.stats_generator import stats
 
 
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -78,8 +79,10 @@ def infer_images(image, label_map_path, heigth, width, file_name):
         heigth, width)
 
     if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
+        stats.correct_detections += 1
         bbox_utils.auto_annotate_images(image, heigth, width, file_name, bouding_boxes)
     else:
+        stats.missing_detections += 1
         cv2.imwrite('./errors_db_autsl/'+file_name,
                     cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
