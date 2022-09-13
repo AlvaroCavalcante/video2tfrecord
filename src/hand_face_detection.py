@@ -15,7 +15,7 @@ except:
 
 
 MODEL = tf.saved_model.load(
-    '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
+    '/home/alvaro/Desktop/hand-face-detector/signer_independent_model/saved_model')
 
 
 def compute_features_and_draw_lines(bouding_boxes):
