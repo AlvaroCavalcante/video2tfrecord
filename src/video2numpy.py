@@ -8,6 +8,7 @@ import hand_face_detection
 from utils import keypoint_utils
 from utils import bounding_box_utils as bbox_utils
 from utils import frame_processing_utils as fp_utils
+from utils.stats_generator import stats
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
@@ -36,6 +37,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     face_width, face_height = 100, 100
 
     cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
+    stats.skiped_frames.append(
+        fp_utils.get_frames_skip(frame_count))
 
     take_all_frames = True if n_frames_per_video == 'all' else False
 
@@ -51,7 +54,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     last_frame = []
     last_positions = {}
-    last_position_used = False
 
     frames_counter = 0
     capture_restarted = False
@@ -81,6 +83,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
             stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                 cap, file_path, take_all_frames, steps, capture_restarted)
 
+            stats.repeated_videos += 1
+            last_frame = []
+            last_positions = {}
+
             if stop:
                 restart = False
                 break
@@ -98,6 +104,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
                         cap, file_path, take_all_frames, steps, capture_restarted)
 
+                    last_frame = []
+                    last_positions = {}
+
                     if stop:
                         restart = False
 
@@ -114,7 +123,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
-                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used = hand_face_detection.detect_visual_cues_from_image(
+                    face, hand_1, hand_2, triangle_features, bounding_boxes, last_positions_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
                         label_map_path='src/utils/label_map.pbtxt',
                         height=height,
@@ -125,6 +134,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     )
 
                     if not triangle_features:
+                        stats.missing_triangle_features += 1
                         continue
 
                     face = fp_utils.resize_frame(
@@ -134,6 +144,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         face, last_positions, last_frame)
 
                     if not face_keypoints:
+                        print('No face keypoints found!')
+                        stats.missing_facial_keypoints += 1
                         continue
 
                     flatten_bbox_coords = get_flatten_bbox_array(
@@ -153,6 +165,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
+                            stats.moviment_history_skip += 1
                         else:
                             video.append(fp_utils.resize_frame(
                                 height, width, n_channels, frame))
@@ -184,32 +197,29 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         moviment_threshold_history.append(
                             temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
 
-                        if len(moviment_threshold_history[0:insert_index]) > 3 and all(moviment_threshold_history[insert_index-3:insert_index]):
-                            frames_counter -= 1
-                        else:
-                            video.insert(insert_index, fp_utils.resize_frame(
-                                height, width, n_channels, frame))
+                        video.insert(insert_index, fp_utils.resize_frame(
+                            height, width, n_channels, frame))
 
-                            [triangle_features.pop(key) for key in [
-                                'default_distance_1', 'default_distance_2', 'default_distance_3']]
-                            triangle_features_list.insert(insert_index, list(
-                                map(lambda key: triangle_features[key], triangle_features)))
-                            faces.insert(insert_index, face)
-                            hands_1.insert(insert_index, fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_1))
-                            hands_2.insert(insert_index, fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_2))
-                            bbox_coords.insert(
-                                insert_index, flatten_bbox_coords)
+                        [triangle_features.pop(key) for key in [
+                            'default_distance_1', 'default_distance_2', 'default_distance_3']]
+                        triangle_features_list.insert(insert_index, list(
+                            map(lambda key: triangle_features[key], triangle_features)))
+                        faces.insert(insert_index, face)
+                        hands_1.insert(insert_index, fp_utils.resize_frame(
+                            hand_width, hand_height, n_channels, hand_1))
+                        hands_2.insert(insert_index, fp_utils.resize_frame(
+                            hand_width, hand_height, n_channels, hand_2))
+                        bbox_coords.insert(
+                            insert_index, flatten_bbox_coords)
 
-                            facial_keypoints.insert(
-                                insert_index, face_keypoints)
-                            frames_used.insert(insert_index, frame_number)
-                            position_features = temporary_position_features
+                        facial_keypoints.insert(
+                            insert_index, face_keypoints)
+                        frames_used.insert(insert_index, frame_number)
+                        position_features = temporary_position_features
 
-                    last_frame = [] if last_position_used else frame
-                    last_positions = {} if last_position_used else bounding_boxes
-                    last_position_used = False
+                    last_positions = get_last_positions(
+                        last_positions, position_features, bounding_boxes, last_positions_used)
+                    last_frame = frame
 
                     frames_counter += 1
             else:
@@ -217,6 +227,11 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     print(str(i + 1) + ' of ' + str(
         number_of_videos) + ' videos within batch processed: ', file_path)
+
+    overall_padding_amount = n_frames - len(hands_1)
+    stats.padding_amount.append(overall_padding_amount)
+    if overall_padding_amount > 5:
+        stats.too_high_padding += 1
 
     faces = fill_data_and_convert_to_np(
         faces, n_frames, face_height, face_width)
@@ -236,6 +251,21 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints
+
+
+def get_last_positions(last_positions, position_features, bounding_boxes, last_positions_used):
+    higher_moviment_hand = 'hand_1' if sum([abs(mov) for mov in position_features['hand1_moviment_hist']]) > sum(
+        [abs(mov) for mov in position_features['hand2_moviment_hist']]) else 'hand_2'
+
+    last_position_used = any(
+        map(lambda pos: pos == higher_moviment_hand, last_positions_used))
+
+    if last_position_used:
+        last_positions[higher_moviment_hand] = None
+    else:
+        last_positions = bounding_boxes
+
+    return last_positions
 
 
 def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
@@ -287,5 +317,6 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
             print('Error to process video {}'.format(file))
             print(e)
             error_videos.append(file)
+            stats.error_videos += 1
 
     return np.array(data), np.array(videos), np.array(triangle_data), np.array(bbox_positions), np.array(moviment_data), np.array(facial_keypoints), final_labels, error_videos

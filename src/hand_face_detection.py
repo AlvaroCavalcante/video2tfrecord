@@ -4,6 +4,7 @@ import cv2
 
 from utils import triangle_utils
 from utils import bounding_box_utils as bbox_utils
+from utils.stats_generator import stats
 
 
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -14,7 +15,7 @@ except:
 
 
 MODEL = tf.saved_model.load(
-    '/home/alvaro/Desktop/hand-face-detector/utils/models/saved_model_efficient_det_d1')
+    '/home/alvaro/Desktop/hand-face-detector/signer_independent_model/saved_model')
 
 
 def compute_features_and_draw_lines(bouding_boxes):
@@ -78,8 +79,10 @@ def infer_images(image, label_map_path, heigth, width, file_name):
         heigth, width)
 
     if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
+        stats.correct_detections += 1
         bbox_utils.auto_annotate_images(image, heigth, width, file_name, bouding_boxes)
     else:
+        stats.missing_detections += 1
         cv2.imwrite('./errors_db_autsl/'+file_name,
                     cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
@@ -91,21 +94,21 @@ def check_last_position_use(bounding_boxes, last_positions):
     This method checks if there's any missing bounding box in the dict. If this
     is the case, then we try to use the last bounding box of the previous frame.
     """
-    last_positions_use = []
+    last_positions_used = []
 
     for class_name in bounding_boxes:
         bbox = bounding_boxes.get(class_name)
         if bbox:
-            last_positions_use.append(False)
+            last_positions_used.append('')
         else:
             bbox = last_positions.get(class_name)
             if bbox:
                 bounding_boxes[class_name] = bbox
-                last_positions_use.append(True)
+                last_positions_used.append(class_name)
             else:
-                last_positions_use.append(False)
+                last_positions_used.append('')
 
-    return bounding_boxes, last_positions_use
+    return bounding_boxes, last_positions_used
 
 
 def detect_visual_cues_from_image(**kwargs):
@@ -114,14 +117,12 @@ def detect_visual_cues_from_image(**kwargs):
     _, bounding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
-    bounding_boxes, last_positions_use = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
+    bounding_boxes, last_positions_used = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
     bounding_boxes = bbox_utils.align_class_names(bounding_boxes, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2 = get_image_segments(
-        input_image, bounding_boxes, kwargs.get('last_frame'), last_positions_use)
+        input_image, bounding_boxes, kwargs.get('last_frame'), last_positions_used)
 
     triangle_features = compute_features_and_draw_lines(bounding_boxes)
 
-    last_position_used = any(last_positions_use)
-
-    return face_segment, hand_1, hand_2, triangle_features, bounding_boxes, last_position_used
+    return face_segment, hand_1, hand_2, triangle_features, bounding_boxes, last_positions_used

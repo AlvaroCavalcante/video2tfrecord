@@ -19,28 +19,25 @@ def align_class_names(current_positions, last_positions):
     if not last_positions:
         return current_positions
 
-    current_centroids = [(int((current_positions[hand]['xmin']+current_positions[hand]['xmax'])/2), int(
-        (current_positions[hand]['ymin']+current_positions[hand]['ymax'])/2)) for hand in ['hand_1', 'hand_2']]
+    try:
+        current_centroids = [(int((current_positions[hand]['xmin']+current_positions[hand]['xmax'])/2), int(
+            (current_positions[hand]['ymin']+current_positions[hand]['ymax'])/2)) for hand in ['hand_1', 'hand_2']]
 
-    last_centroids = [(int((last_positions[hand]['xmin']+last_positions[hand]['xmax'])/2), int(
-        (last_positions[hand]['ymin']+last_positions[hand]['ymax'])/2)) for hand in ['hand_1', 'hand_2']]
+        last_centroids = [(int((last_positions[hand]['xmin']+last_positions[hand]['xmax'])/2), int(
+            (last_positions[hand]['ymin']+last_positions[hand]['ymax'])/2)) for hand in ['hand_1', 'hand_2']]
 
-    # current1_hand2 = math.sqrt(
-    #     (current_centroids[0][0]-last_centroids[1][0])**2+(current_centroids[0][1]-last_centroids[1][1])**2)
+        current_hand1_last_hand1 = math.sqrt(
+            (current_centroids[0][0]-last_centroids[0][0])**2+(current_centroids[0][1]-last_centroids[0][1])**2)
 
-    # current2_hand2 = math.sqrt(
-    #     (current_centroids[1][0]-last_centroids[1][0])**2+(current_centroids[1][1]-last_centroids[1][1])**2)
+        current_hand2_last_hand1 = math.sqrt(
+            (current_centroids[1][0]-last_centroids[0][0])**2+(current_centroids[1][1]-last_centroids[0][1])**2)
 
-    current_hand1_last_hand1 = math.sqrt(
-        (current_centroids[0][0]-last_centroids[0][0])**2+(current_centroids[0][1]-last_centroids[0][1])**2)
-
-    current_hand2_last_hand1 = math.sqrt(
-        (current_centroids[1][0]-last_centroids[0][0])**2+(current_centroids[1][1]-last_centroids[0][1])**2)
-
-    if current_hand1_last_hand1 < current_hand2_last_hand1:
+        if current_hand1_last_hand1 < current_hand2_last_hand1:
+            return current_positions
+        else:
+            return {'hand_1': current_positions['hand_2'], 'hand_2': current_positions['hand_1'], 'face': current_positions['face']}
+    except Exception:
         return current_positions
-    else:
-        return {'hand_1': current_positions['hand_2'], 'hand_2': current_positions['hand_1'], 'face': current_positions['face']}
 
 
 def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, classes, boxes, heigth, width, draw_on_image=False):

@@ -13,6 +13,7 @@ from datetime import datetime
 import pandas as pd
 import tensorflow as tf
 from tensorflow.python.platform import gfile
+from utils.stats_generator import stats
 
 import video2numpy
 
@@ -119,6 +120,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
         checkpoint_df = save_new_checkpoint(checkpoint_df, batch, error_videos)
 
+        stats.save_stats_as_dataframe()
 
 def recover_checkpoint(reset_checkpoint, filenames):
     if reset_checkpoint:
@@ -264,6 +266,6 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/val_v2',
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/val_v4',
         n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=False)
+        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=True)
