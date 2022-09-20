@@ -315,6 +315,6 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
             print('Error to process video {}'.format(file))
             print(e)
             error_videos.append(file)
-            stats.error_videos += 1
+            stats.error_videos.append(file)
 
     return np.array(data), np.array(videos), np.array(triangle_data), np.array(bbox_positions), np.array(moviment_data), np.array(facial_keypoints), final_labels, error_videos

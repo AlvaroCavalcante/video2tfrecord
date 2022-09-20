@@ -1,4 +1,3 @@
-import pandas as pd
 import pickle
 
 class DatasetStatistics():
@@ -12,7 +11,7 @@ class DatasetStatistics():
         self.padding_amount = []
         self.correct_detections = 0
         self.missing_detections = 0
-        self.error_videos = 0
+        self.error_videos = []
         self.repeated_videos = 0
 
     def save_stats_as_dataframe(self):
