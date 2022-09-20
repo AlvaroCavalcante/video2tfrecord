@@ -37,15 +37,6 @@ def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_resta
     return stop, cap, steps, capture_restarted
 
 
-def get_frames_skip(frame_count):
-    if frame_count <= 40:
-        return 4
-    elif frame_count <= 50:
-        return 6
-
-    return 8
-
-
 def get_video_capture_and_frame_count(path):
     assert os.path.isfile(
         path), "Couldn't find video file:" + path + ". Skipping video."
@@ -60,9 +51,6 @@ def get_video_capture_and_frame_count(path):
         frame_count = int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
     else:
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    # remove last frames
-    frame_count = frame_count - get_frames_skip(frame_count)
 
     return cap, frame_count
 

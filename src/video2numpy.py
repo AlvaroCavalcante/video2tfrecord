@@ -37,8 +37,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     face_width, face_height = 100, 100
 
     cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
-    stats.skiped_frames.append(
-        fp_utils.get_frames_skip(frame_count))
 
     take_all_frames = True if n_frames_per_video == 'all' else False
 
@@ -58,6 +56,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     frames_counter = 0
     capture_restarted = False
     restart = True
+    rest_position = True
+    rest_position_skip = 0
     frames_used = []
 
     position_features = {
@@ -73,11 +73,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     moviment_threshold_history = []
 
     while restart:
-        # initial frames to skip in sign language video
-        frames_to_skip = fp_utils.get_frames_skip(frame_count)
-
         steps = frame_count if take_all_frames else int(
-            math.floor((frame_count - frames_to_skip) / n_frames_per_video))
+            math.floor(frame_count / n_frames_per_video))
 
         if frames_counter > 0:
             stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
@@ -92,10 +89,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                 break
 
         for frame_number in range(frame_count):
-            if frames_to_skip > 0:  # skipping the first frames of the sign language video
-                fp_utils.get_next_frame(cap)
-                frames_to_skip -= 1
-                continue
             if math.floor(frame_number % steps) == 0 or take_all_frames:
                 frame = fp_utils.get_next_frame(cap)
 
@@ -159,6 +152,16 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             temporary_position_features, triangle_features)
                         temporary_position_features = bbox_utils.get_moviment_features(
                             temporary_position_features)
+
+                        rest_position = True if len(frames_used) == 1 and temporary_position_features[
+                            'both_hands_moviment_hist'][-1] < 10 else False
+
+                        if rest_position:
+                            rest_position_skip += 1
+                            continue
+
+                        if len(frames_used) == 1 and not rest_position:
+                            stats.skiped_frames.append(rest_position_skip)
 
                         moviment_threshold_history.append(
                             temporary_position_features['both_hands_moviment_hist'][-1] < 5)
