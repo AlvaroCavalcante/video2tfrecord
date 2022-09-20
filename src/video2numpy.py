@@ -229,7 +229,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     overall_padding_amount = n_frames_per_video - len(hands_1)
     stats.padding_amount.append(overall_padding_amount)
     if overall_padding_amount > 5:
-        stats.too_high_padding += 1
+        stats.too_high_padding.append(file_path)
 
     faces = fill_data_and_convert_to_np(
         faces, n_frames_per_video, face_height, face_width)

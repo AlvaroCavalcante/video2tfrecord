@@ -7,7 +7,7 @@ class DatasetStatistics():
         self.missing_facial_keypoints = 0
         self.missing_triangle_features = 0
         self.moviment_history_skip = 0
-        self.too_high_padding = 0
+        self.too_high_padding = []
         self.padding_amount = []
         self.correct_detections = 0
         self.missing_detections = 0
