@@ -38,10 +38,6 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
     cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
 
-    take_all_frames = True if n_frames_per_video == 'all' else False
-
-    n_frames = frame_count if take_all_frames else n_frames_per_video
-
     video = []
     faces = []
     hands_1 = []
@@ -73,12 +69,11 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     moviment_threshold_history = []
 
     while restart:
-        steps = frame_count if take_all_frames else int(
-            math.floor(frame_count / n_frames_per_video))
+        steps = int(math.floor(frame_count / n_frames_per_video))
 
         if frames_counter > 0:
             stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
-                cap, file_path, take_all_frames, steps, capture_restarted)
+                cap, file_path, steps, capture_restarted)
 
             stats.repeated_videos += 1
             last_frame = []
@@ -89,13 +84,13 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                 break
 
         for frame_number in range(frame_count):
-            if math.floor(frame_number % steps) == 0 or take_all_frames:
+            if math.floor(frame_number % steps) == 0:
                 frame = fp_utils.get_next_frame(cap)
 
                 # special case handling: opencv's frame count sometimes differs from real frame count -> repeat
-                if frame is None and frames_counter < n_frames:
+                if frame is None and frames_counter < n_frames_per_video:
                     stop, cap, steps, capture_restarted = fp_utils.repeat_image_retrieval(
-                        cap, file_path, take_all_frames, steps, capture_restarted)
+                        cap, file_path, steps, capture_restarted)
 
                     last_frame = []
                     last_positions = {}
@@ -105,7 +100,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     break
 
-                elif frames_counter >= n_frames:
+                elif frames_counter >= n_frames_per_video:
                     restart = False
                     break
 
@@ -231,26 +226,26 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     print(str(i + 1) + ' of ' + str(
         number_of_videos) + ' videos within batch processed: ', file_path)
 
-    overall_padding_amount = n_frames - len(hands_1)
+    overall_padding_amount = n_frames_per_video - len(hands_1)
     stats.padding_amount.append(overall_padding_amount)
     if overall_padding_amount > 5:
         stats.too_high_padding += 1
 
     faces = fill_data_and_convert_to_np(
-        faces, n_frames, face_height, face_width)
+        faces, n_frames_per_video, face_height, face_width)
     hands_1 = fill_data_and_convert_to_np(
-        hands_1, n_frames, hand_height, hand_width)
+        hands_1, n_frames_per_video, hand_height, hand_width)
     hands_2 = fill_data_and_convert_to_np(
-        hands_2, n_frames, hand_height, hand_width)
-    video = fill_data_and_convert_to_np(video, n_frames, height, width)
+        hands_2, n_frames_per_video, hand_height, hand_width)
+    video = fill_data_and_convert_to_np(video, n_frames_per_video, height, width)
     triangle_features_list = fill_data_and_convert_to_np(
-        triangle_features_list, n_frames, 1, 11, False)
+        triangle_features_list, n_frames_per_video, 1, 11, False)
     bbox_coords = fill_data_and_convert_to_np(
-        bbox_coords, n_frames, 1, 12, False)
+        bbox_coords, n_frames_per_video, 1, 12, False)
     hands_moviment = fill_data_and_convert_to_np(
-        position_features['hand1_2_moviment_hist'], n_frames, 1, 2, False)
+        position_features['hand1_2_moviment_hist'], n_frames_per_video, 1, 2, False)
     facial_keypoints = fill_data_and_convert_to_np(
-        facial_keypoints, n_frames, 1, 136, False)
+        facial_keypoints, n_frames_per_video, 1, 136, False)
 
     cap.release()
     return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints

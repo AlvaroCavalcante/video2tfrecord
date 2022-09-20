@@ -16,12 +16,9 @@ def resize_frame(height, width, n_channels, frame):
     return image
 
 
-def repeat_image_retrieval(cap, file_path, take_all_frames, steps, capture_restarted):
+def repeat_image_retrieval(cap, file_path, steps, capture_restarted):
     stop = False
-
-    if not take_all_frames:
-        # repeat with smaller step size
-        steps -= 1
+    steps -= 1
 
     if capture_restarted or steps <= 0:
         stop = True
