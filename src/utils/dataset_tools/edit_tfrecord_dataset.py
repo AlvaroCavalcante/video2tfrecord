@@ -1,14 +1,12 @@
+"""
+This script is used to change the TFRecord content. If we have some small 
+modification, we can use this to avoid reprocessing the entire dataset.
+"""
+
 import os
-import math
 from datetime import datetime
 
 import tensorflow as tf
-import numpy as np
-
-"""
-This script is used to normalized the triangle values. We modified
-the tfrecord values to avoid reprocessing the entire dataset.
-"""
 
 
 def read_tfrecord(example_proto):
