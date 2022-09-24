@@ -113,7 +113,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                     face, hand_1, hand_2, triangle_features, bounding_boxes, last_positions_used = hand_face_detection.detect_visual_cues_from_image(
                         image=frame,
-                        label_map_path='src/utils/label_map.pbtxt',
+                        label_map_path='src/utils/assets/label_map.pbtxt',
                         height=height,
                         width=width,
                         last_frame=last_frame,

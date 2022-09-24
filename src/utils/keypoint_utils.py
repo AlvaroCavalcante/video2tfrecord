@@ -2,7 +2,7 @@ import cv2
 import dlib
 from imutils import face_utils
 
-KEYPOINT_PREDICTOR = dlib.shape_predictor('src/utils/shape_predictor_68_face_landmarks.dat')
+KEYPOINT_PREDICTOR = dlib.shape_predictor('src/utils/assets/shape_predictor_68_face_landmarks.dat')
 
 
 def keypoint_inference(face_img, face_rect):
