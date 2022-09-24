@@ -1,4 +1,5 @@
 import pickle
+import time
 
 class DatasetStatistics():
 
@@ -28,7 +29,7 @@ class DatasetStatistics():
             'repeated_videos': self.repeated_videos
         }
 
-        pickle.dump(val_object, open('dataset_statistics.pickle', 'wb'))
+        pickle.dump(val_object, open(f'dataset_statistics_{str(time.time())}.pickle', 'wb'))
 
 
 stats = DatasetStatistics()
