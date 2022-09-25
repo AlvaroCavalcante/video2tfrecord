@@ -116,7 +116,7 @@ def read_tfrecord(example_proto):
         face_image = get_image(features[face_stream], width, height)
         hand_1_image = get_image(features[hand_1_stream], width, height)
         hand_2_image = get_image(features[hand_2_stream], width, height)
-        image = get_image(features[video_stream], 512, 512)
+        image = get_image(features[video_stream], 256, 256)
 
         # face_image = transform_image(
         #     face_image, width, apply_proba_dict, range_aug_dict, seed)
@@ -175,7 +175,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/example/train_v2_edited/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/results/wlasl_train/*.tfrecords')
 row = 4
 col = 4
 

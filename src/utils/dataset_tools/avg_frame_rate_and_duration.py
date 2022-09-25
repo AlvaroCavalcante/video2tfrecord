@@ -16,7 +16,7 @@ def with_opencv(filename):
 
     return duration, total_num_frames
 
-vid_path = '/home/alvaro/Documents/AUTSL_VIDEO_DATA/train/train'
+vid_path = '/home/alvaro/Downloads/DATASETS/wlasl_train'
 
 videos = os.listdir(vid_path)
 frames = []
@@ -24,12 +24,15 @@ durations = []
 
 
 for i, video in enumerate(videos):
-    duration, frame = with_opencv(f'{vid_path}/{video}')
-    
-    frames.append(frame)
-    durations.append(duration)
+    try:
+        duration, frame = with_opencv(f'{vid_path}/{video}')
+        
+        frames.append(frame)
+        durations.append(duration)
 
-    print(f'Remaining videos: {len(videos)-i}')
+        print(f'Remaining videos: {len(videos)-i}')
+    except:
+        print(f'Error with video: {video}')
 
 print('Mean frames:', sum(frames)/len(frames))
 print('Mean duration:', sum(durations)/len(durations))

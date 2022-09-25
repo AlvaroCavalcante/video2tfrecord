@@ -8,10 +8,10 @@ from utils import label_map_util
 
 
 def auto_annotate_images(image, heigth, width, file_name, bouding_boxes):
-    generate_xml = AnnotationGenerator('./object_detection_db_autsl/')
+    generate_xml = AnnotationGenerator('./object_detection_db/')
     generate_xml.generate_xml_annotation(
         bouding_boxes, width, heigth, file_name)
-    cv2.imwrite('./object_detection_db_autsl/'+file_name,
+    cv2.imwrite('./object_detection_db/'+file_name,
                 cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 

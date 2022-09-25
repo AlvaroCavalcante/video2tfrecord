@@ -9,7 +9,8 @@ from utils import keypoint_utils
 from utils import bounding_box_utils as bbox_utils
 from utils import frame_processing_utils as fp_utils
 from utils.stats_generator import stats
-
+import cv2
+import os
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
     padding_amount = n_frames - len(data)
@@ -142,6 +143,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     temporary_position_features = copy.deepcopy(
                         position_features)
 
+                    # cv2.imwrite('video_sample/frame_' + str(frames_counter) + '.jpg', cv2.cvtColor(
+                    #     frame, cv2.COLOR_BGR2RGB))
+
                     if not capture_restarted:
                         temporary_position_features = bbox_utils.get_position_features(
                             temporary_position_features, triangle_features)
@@ -149,7 +153,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             temporary_position_features)
 
                         rest_position = True if len(frames_used) == 1 and temporary_position_features[
-                            'both_hands_moviment_hist'][-1] < 10 else False
+                            'both_hands_moviment_hist'][-1] < 5 else False
 
                         if rest_position:
                             rest_position_skip += 1
@@ -159,7 +163,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             stats.skiped_frames.append(rest_position_skip)
 
                         moviment_threshold_history.append(
-                            temporary_position_features['both_hands_moviment_hist'][-1] < 5)
+                            temporary_position_features['both_hands_moviment_hist'][-1] < 2.5)
 
                         if len(moviment_threshold_history) >= 3 and all(moviment_threshold_history[-3:]):
                             frames_counter -= 1
@@ -193,7 +197,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             temporary_position_features, insert_index)
 
                         moviment_threshold_history.append(
-                            temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
+                            temporary_position_features['both_hands_moviment_hist'][insert_index] < 2.5)
 
                         video.insert(insert_index, fp_utils.resize_frame(
                             height, width, n_channels, frame))
@@ -248,6 +252,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         facial_keypoints, n_frames_per_video, 1, 136, False)
 
     cap.release()
+
+    # for file in os.listdir('video_sample'):
+    #     os.remove(os.path.join('video_sample', file))
+
     return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints
 
 
