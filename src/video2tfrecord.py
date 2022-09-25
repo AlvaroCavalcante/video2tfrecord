@@ -51,7 +51,7 @@ def get_data_label(batch_files, class_labels):
         file = file.split('/')[-1].split('.')[0]
         file = '_'.join(file.split('_')[0:2])
         labels.append(
-            class_labels.loc[class_labels['video_name'] == file, ['label']].values[0][0])
+            class_labels.loc[class_labels['video_name'] == int(file), ['label']].values[0][0])
 
     return labels
 
@@ -92,7 +92,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         assert n_frames_per_video == "all"
 
     filenames = get_filenames(source_path, file_suffix, video_filenames)
-    class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
+    class_labels = pd.read_csv(label_path)
 
     filenames, checkpoint_df = recover_checkpoint(reset_checkpoint, filenames)
 
@@ -266,6 +266,6 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/val_v4',
-        n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=True)
+        '/home/alvaro/Downloads/DATASETS/wlasl_val', 'results/wlasl_val',
+        n_videos_in_record=360, n_frames_per_video=16, file_suffix='*.mp4',
+        width=256, height=256, label_path='/home/alvaro/Downloads/DATASETS/wlasl_val/labels.csv', reset_checkpoint=True)
