@@ -3,7 +3,7 @@ import time
 
 class DatasetStatistics():
 
-    def __init__(self) -> None:
+    def __init__(self, filename) -> None:
         self.skiped_frames = []
         self.missing_facial_keypoints = 0
         self.missing_triangle_features = 0
@@ -14,6 +14,7 @@ class DatasetStatistics():
         self.missing_detections = 0
         self.error_videos = []
         self.repeated_videos = 0
+        self.file_name = filename
 
     def save_stats_as_dataframe(self):
         val_object = {
@@ -29,7 +30,7 @@ class DatasetStatistics():
             'repeated_videos': self.repeated_videos
         }
 
-        pickle.dump(val_object, open(f'dataset_statistics_{str(time.time())}.pickle', 'wb'))
+        pickle.dump(val_object, open(f'dataset_statistics_{self.file_name}.pickle', 'wb'))
 
 
-stats = DatasetStatistics()
+stats = DatasetStatistics(str(time.time()))
