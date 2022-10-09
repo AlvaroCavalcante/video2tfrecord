@@ -9,6 +9,7 @@ from utils import keypoint_utils
 from utils import bounding_box_utils as bbox_utils
 from utils import frame_processing_utils as fp_utils
 from utils.stats_generator import stats
+from utils import triangle_utils
 
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
@@ -35,6 +36,7 @@ def get_flatten_bbox_array(bounding_boxes):
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
     hand_width, hand_height = 100, 100
     face_width, face_height = 100, 100
+    triangle_fig_width, triangle_fig_height = 256, 256
 
     cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
 
@@ -42,6 +44,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     faces = []
     hands_1 = []
     hands_2 = []
+    triangle_figures = []
     facial_keypoints = []
     triangle_features_list = []
     bbox_coords = []
@@ -125,6 +128,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         stats.missing_triangle_features += 1
                         continue
 
+                    triangle_fig = fp_utils.resize_frame(triangle_fig_width, triangle_fig_height, n_channels,
+                                                         triangle_utils.get_triangle_figure(
+                                                             bounding_boxes, frame.shape))
+
                     face = fp_utils.resize_frame(
                         face_width, face_height, n_channels, face)
 
@@ -182,6 +189,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             bbox_coords.append(flatten_bbox_coords)
                             facial_keypoints.append(face_keypoints)
                             position_features = temporary_position_features
+                            triangle_figures.append(triangle_fig)
                     else:
                         insert_index = bisect.bisect_left(
                             frames_used, frame_number)
@@ -209,6 +217,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             hand_width, hand_height, n_channels, hand_2))
                         bbox_coords.insert(
                             insert_index, flatten_bbox_coords)
+                        triangle_figures.insert(insert_index, triangle_fig)
 
                         facial_keypoints.insert(
                             insert_index, face_keypoints)
@@ -237,7 +246,10 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         hands_1, n_frames_per_video, hand_height, hand_width)
     hands_2 = fill_data_and_convert_to_np(
         hands_2, n_frames_per_video, hand_height, hand_width)
-    video = fill_data_and_convert_to_np(video, n_frames_per_video, height, width)
+    video = fill_data_and_convert_to_np(
+        video, n_frames_per_video, height, width)
+    triangle_figures = fill_data_and_convert_to_np(
+        triangle_figures, n_frames_per_video, triangle_fig_width, triangle_fig_height)
     triangle_features_list = fill_data_and_convert_to_np(
         triangle_features_list, n_frames_per_video, 1, 11, False)
     bbox_coords = fill_data_and_convert_to_np(
@@ -248,7 +260,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         facial_keypoints, n_frames_per_video, 1, 136, False)
 
     cap.release()
-    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints
+    return faces, hands_1, hands_2, triangle_features_list, bbox_coords, video, hands_moviment, facial_keypoints, triangle_figures
 
 
 def get_last_positions(last_positions, position_features, bounding_boxes, last_positions_used):
@@ -297,10 +309,11 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
     videos = []
     error_videos = []
     facial_keypoints = []
+    triangle_figures = []
 
     for i, file in enumerate(filenames):
         try:
-            faces, hands_1, hands_2, triangle_features, centroids, video, hands_moviment, keypoints = video_file_to_ndarray(i=i, file_path=file,
+            faces, hands_1, hands_2, triangle_features, centroids, video, hands_moviment, keypoints, triangle_figs = video_file_to_ndarray(i=i, file_path=file,
                                                                                                                             n_frames_per_video=n_frames_per_video,
                                                                                                                             height=height, width=width,
                                                                                                                             number_of_videos=number_of_videos)
@@ -311,10 +324,11 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
             moviment_data.append(hands_moviment)
             final_labels.append(labels[i])
             facial_keypoints.append(keypoints)
+            triangle_figures.append(triangle_figs)
         except Exception as e:
             print('Error to process video {}'.format(file))
             print(e)
             error_videos.append(file)
             stats.error_videos.append(file)
 
-    return np.array(data), np.array(videos), np.array(triangle_data), np.array(bbox_positions), np.array(moviment_data), np.array(facial_keypoints), final_labels, error_videos
+    return np.array(data), np.array(videos), np.array(triangle_data), np.array(bbox_positions), np.array(moviment_data), np.array(facial_keypoints), np.array(triangle_figures), final_labels, error_videos
