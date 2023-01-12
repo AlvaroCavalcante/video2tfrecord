@@ -282,6 +282,6 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Downloads/CSL/color-gloss/color_train', 'results/train',
-        n_videos_in_record=180, width=1280, height=720,
+        n_videos_in_record=180, width=512, height=512,
         label_path=None,
         reset_checkpoint=True)

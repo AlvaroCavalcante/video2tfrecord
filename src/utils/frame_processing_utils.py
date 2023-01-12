@@ -20,11 +20,11 @@ def repeat_image_retrieval(cap, file_path, steps, capture_restarted):
     stop = False
     steps -= 1
 
-    if capture_restarted or steps <= 0:
+    if capture_restarted == 2 or steps <= 0:
         stop = True
         return stop, cap, steps, capture_restarted
 
-    capture_restarted = True
+    capture_restarted += 1
     print('reducing step size due to error for video: ', file_path)
     cap.release()
     cap, _ = get_video_capture_and_frame_count(file_path)

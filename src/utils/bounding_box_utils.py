@@ -108,7 +108,7 @@ def get_position_features(position_features, triangle_features, insert_index=Non
     hand_1_position = triangle_features['default_distance_1']
     hand_2_position = triangle_features['default_distance_2']
 
-    if not insert_index:
+    if insert_index is None:
         position_features['both_hands_position'].append(both_hands_position)
         position_features['hand1_position'].append(hand_1_position)
         position_features['hand2_position'].append(hand_2_position)
@@ -125,7 +125,7 @@ def get_position_features(position_features, triangle_features, insert_index=Non
 
 def get_moviment_features(position_features, insert_index=None):
     if len(position_features['both_hands_position']) > 1:
-        if not insert_index:
+        if insert_index is None:
             both_hands_mov = abs(
                 position_features['both_hands_position'][-1] -
                 position_features['both_hands_position'][-2]

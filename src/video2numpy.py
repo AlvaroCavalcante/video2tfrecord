@@ -53,7 +53,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     last_positions = {}
 
     frames_counter = 0
-    capture_restarted = False
+    capture_restarted = 0
     restart = True
     rest_position = True
     rest_position_skip = 0
@@ -111,6 +111,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                     continue
 
                 else:
+                    frame = fp_utils.resize_frame(
+                        512, 512, 3, frame[50:650, 320:1000])
+
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
 
@@ -200,29 +203,33 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         temporary_position_features = bbox_utils.get_moviment_features(
                             temporary_position_features, insert_index)
 
-                        moviment_threshold_history.append(
-                            temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
+                        moviment_threshold_history.insert(
+                            insert_index, temporary_position_features['both_hands_moviment_hist'][insert_index] < 5)
 
-                        video.insert(insert_index, fp_utils.resize_frame(
-                            height, width, n_channels, frame))
+                        if len(moviment_threshold_history[insert_index:insert_index+3]) >= 3 and all(moviment_threshold_history[insert_index:insert_index+3]):
+                            frames_counter -= 1
+                            stats.moviment_history_skip += 1
+                        else:
+                            video.insert(insert_index, fp_utils.resize_frame(
+                                height, width, n_channels, frame))
 
-                        [triangle_features.pop(key) for key in [
-                            'default_distance_1', 'default_distance_2', 'default_distance_3']]
-                        triangle_features_list.insert(insert_index, list(
-                            map(lambda key: triangle_features[key], triangle_features)))
-                        faces.insert(insert_index, face)
-                        hands_1.insert(insert_index, fp_utils.resize_frame(
-                            hand_width, hand_height, n_channels, hand_1))
-                        hands_2.insert(insert_index, fp_utils.resize_frame(
-                            hand_width, hand_height, n_channels, hand_2))
-                        bbox_coords.insert(
-                            insert_index, flatten_bbox_coords)
-                        triangle_figures.insert(insert_index, triangle_fig)
+                            [triangle_features.pop(key) for key in [
+                                'default_distance_1', 'default_distance_2', 'default_distance_3']]
+                            triangle_features_list.insert(insert_index, list(
+                                map(lambda key: triangle_features[key], triangle_features)))
+                            faces.insert(insert_index, face)
+                            hands_1.insert(insert_index, fp_utils.resize_frame(
+                                hand_width, hand_height, n_channels, hand_1))
+                            hands_2.insert(insert_index, fp_utils.resize_frame(
+                                hand_width, hand_height, n_channels, hand_2))
+                            bbox_coords.insert(
+                                insert_index, flatten_bbox_coords)
+                            triangle_figures.insert(insert_index, triangle_fig)
 
-                        facial_keypoints.insert(
-                            insert_index, face_keypoints)
-                        frames_used.insert(insert_index, frame_number)
-                        position_features = temporary_position_features
+                            facial_keypoints.insert(
+                                insert_index, face_keypoints)
+                            frames_used.insert(insert_index, frame_number)
+                            position_features = temporary_position_features
 
                     last_positions = get_last_positions(
                         last_positions, position_features, bounding_boxes, last_positions_used)
@@ -314,9 +321,9 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
     for i, file in enumerate(filenames):
         try:
             faces, hands_1, hands_2, triangle_features, centroids, video, hands_moviment, keypoints, triangle_figs = video_file_to_ndarray(i=i, file_path=file,
-                                                                                                                            n_frames_per_video=n_frames_per_video,
-                                                                                                                            height=height, width=width,
-                                                                                                                            number_of_videos=number_of_videos)
+                                                                                                                                           n_frames_per_video=n_frames_per_video,
+                                                                                                                                           height=height, width=width,
+                                                                                                                                           number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
             videos.append(video)
             triangle_data.append(triangle_features)
