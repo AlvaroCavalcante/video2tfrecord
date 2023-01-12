@@ -15,7 +15,7 @@ except:
 
 
 MODEL = tf.saved_model.load(
-    '/home/alvaro/Desktop/hand-face-detector/signer_independent_model/saved_model')
+    '/home/alvaro/Desktop/hand-face-detector/utils/saved_models/tiny_efficient_det_d0/saved_model')
 
 
 def compute_features_and_draw_lines(bouding_boxes):
@@ -80,11 +80,11 @@ def infer_images(image, label_map_path, heigth, width, file_name):
 
     if len(list(filter(lambda class_name: bouding_boxes[class_name] != None, bouding_boxes))) == 3:
         stats.correct_detections += 1
-        bbox_utils.auto_annotate_images(image, heigth, width, file_name, bouding_boxes)
+        # bbox_utils.auto_annotate_images(image, heigth, width, file_name, bouding_boxes)
     else:
         stats.missing_detections += 1
-        cv2.imwrite('./errors_db_autsl/'+file_name,
-                    cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        # cv2.imwrite('./errors_db_autsl/'+file_name,
+                    # cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
     return image_np_with_detections, bouding_boxes
 

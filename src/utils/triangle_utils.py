@@ -1,5 +1,8 @@
 import math
 
+import cv2
+import numpy as np
+
 
 def get_centroids(bouding_boxes):
     centroids = {}
@@ -91,3 +94,45 @@ def compute_triangle_features(centroids):
     except Exception as e:
         print('Error to calculate triangle features')
         print(e)
+
+
+def draw_triangle_on_img(centroids, triangle_figure):
+    points = np.array([list(centroids[cent]) for cent in centroids])
+    cv2.fillPoly(triangle_figure, pts=[points], color=(255, 255, 255))
+
+    return triangle_figure
+
+
+def get_triangle_figure(bounding_boxes, input_img_shape):
+    centroids = get_centroids(bounding_boxes)
+    triangle_figure = np.zeros(input_img_shape, np.uint8)
+
+    triangle_figure = draw_triangle_on_img(centroids, triangle_figure)
+
+    for class_name in centroids:
+        if class_name == 'face':
+            cv2.circle(triangle_figure,
+                       centroids[class_name], 20, (0, 255, 0), -1)
+
+        xmin, xmax, ymin, ymax = get_reduced_bbox(
+            bounding_boxes[class_name])
+
+        if class_name == 'hand_1':
+            cv2.rectangle(triangle_figure, (xmin, ymin),
+                          (xmax, ymax), (0, 0, 255), -1)
+        elif class_name == 'hand_2':
+            points = np.array(
+                [[(xmin + xmax)//2, ymin], [xmax, ymax], [xmin, ymax]])
+            cv2.fillPoly(triangle_figure, pts=[points], color=(255, 0, 0))
+
+    return triangle_figure
+
+
+def get_reduced_bbox(boxes):
+    xmin, xmax, ymin, ymax = boxes['xmin'], boxes['xmax'], boxes['ymin'], boxes['ymax']
+
+    xmin += int(0.15 * (xmax - xmin))
+    xmax -= int(0.15 * (xmax - xmin))
+    ymin += int(0.15 * (ymax - ymin))
+    ymax -= int(0.15 * (ymax - ymin))
+    return xmin, xmax, ymin, ymax

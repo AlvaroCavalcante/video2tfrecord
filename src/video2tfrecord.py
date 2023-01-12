@@ -6,16 +6,15 @@
  an equal separation distribution of the video images. Implementation supports Optical Flow
  (currently OpenCV's calcOpticalFlowFarneback) as an additional 4th channel.
 """
+import tensorflow as tf
+import video2numpy
+from utils.stats_generator import stats
+from tensorflow.python.platform import gfile
 import os
 import math
 from datetime import datetime
 
 import pandas as pd
-import tensorflow as tf
-from tensorflow.python.platform import gfile
-from utils.stats_generator import stats
-
-import video2numpy
 
 
 def _int64_feature(value):
@@ -57,7 +56,7 @@ def get_data_label(batch_files, class_labels):
 
 
 def convert_videos_to_tfrecord(source_path, destination_path,
-                               n_videos_in_record=10, n_frames_per_video='all',
+                               n_videos_in_record=10, n_frames_per_video=16,
                                file_suffix='*.mp4',
                                width=1280, height=720,
                                video_filenames=None, label_path=None, reset_checkpoint=False):
@@ -103,24 +102,24 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
     for i, batch in enumerate(filenames_split):
         print('Processing batch {}'.format(str(i)))
+        data, videos, triangle_figures = (None, None, None) # removing huge arrays from memory
 
-        data = None
         labels = get_data_label(batch, class_labels)
-
-        data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
-                                                                                                                                                 n_frames_per_video=n_frames_per_video, labels=labels)
+        data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, triangle_figures, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
+                                                                                                                                                                   n_frames_per_video=n_frames_per_video, labels=labels)
 
         batch = list(filter(lambda file: file not in error_videos, batch))
         print('Batch ' + str(i + 1) + '/' +
               str(total_batch_number) + ' completed')
         assert data.size != 0, 'something went wrong during video to numpy conversion'
 
-        save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, batch, destination_path,
+        save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, triangle_figures, batch, destination_path,
                                 n_videos_in_record, i + 1, total_batch_number, labels=labels)
 
         checkpoint_df = save_new_checkpoint(checkpoint_df, batch, error_videos)
 
         stats.save_stats_as_dataframe()
+
 
 def recover_checkpoint(reset_checkpoint, filenames):
     if reset_checkpoint:
@@ -160,7 +159,7 @@ def remove_from_checkpoint(checkpoint_df, filenames):
     return filenames
 
 
-def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, filenames, destination_path, fragment_size,
+def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, triangle_figures, filenames, destination_path, fragment_size,
                             current_batch_number, total_batch_number, labels):
     """Converts an entire dataset into x tfrecords where x=videos/fragment_size.
 
@@ -199,6 +198,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, movimen
             bbox_stream = 'bbox/' + str(image_count)
             moviment_stream = 'moviment/' + str(image_count)
             keypoint_stream = 'keypoint/' + str(image_count)
+            triangle_figures_stream = 'tri_figures/' + str(image_count)
 
             face_image = data[video_count, 0,
                               image_count, :, :, :].astype('uint8')
@@ -208,6 +208,8 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, movimen
                                 image_count, :, :, :].astype('uint8')
             video_img = videos[video_count,
                                image_count, :, :, :].astype('uint8')
+            triangle_img = triangle_figures[video_count,
+                                            image_count, :, :, :].astype('uint8')
 
             face_raw = tf.image.encode_jpeg(
                 face_image).numpy()
@@ -217,6 +219,8 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, movimen
                 hand_2_image).numpy()
             video_img_raw = tf.image.encode_jpeg(
                 video_img).numpy()
+            triangle_img_raw = tf.image.encode_jpeg(
+                triangle_img).numpy()
 
             file = filenames[video_count].split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
@@ -225,6 +229,7 @@ def save_numpy_to_tfrecords(data, videos, triangle_data, bbox_positions, movimen
             feature[hand_1_stream] = _bytes_feature(hand_1_raw)
             feature[hand_2_stream] = _bytes_feature(hand_2_raw)
             feature[video_stream] = _bytes_feature(video_img_raw)
+            feature[triangle_figures_stream] = _bytes_feature(triangle_img_raw)
 
             feature['video_name'] = _bytes_feature(str.encode(file))
             feature['height'] = _int64_feature(height)
@@ -266,6 +271,7 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'example/val_v4',
-        n_videos_in_record=180, n_frames_per_video=16, file_suffix='*.mp4',
-        width=512, height=512, label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv', reset_checkpoint=True)
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'results/test_v7',
+        n_videos_in_record=5000, width=512, height=512,
+        label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv',
+        reset_checkpoint=True)
