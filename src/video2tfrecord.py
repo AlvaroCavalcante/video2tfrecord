@@ -102,10 +102,9 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
     for i, batch in enumerate(filenames_split):
         print('Processing batch {}'.format(str(i)))
+        data, videos, triangle_figures = (None, None, None) # removing huge arrays from memory
 
-        data = None
         labels = get_data_label(batch, class_labels)
-
         data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, triangle_figures, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
                                                                                                                                                                    n_frames_per_video=n_frames_per_video, labels=labels)
 
@@ -272,7 +271,7 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'results/val_v6',
-        n_videos_in_record=180, width=512, height=512,
+        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'results/test_v7',
+        n_videos_in_record=5000, width=512, height=512,
         label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv',
         reset_checkpoint=True)
