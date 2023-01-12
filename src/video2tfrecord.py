@@ -36,7 +36,7 @@ def get_chunks(l, n):
         yield l[i:i + n]
 
 
-def get_data_label(batch_files, class_labels):
+def get_data_label(batch_files, class_labels = None):
     """Gets the video labels based on the name of the video. Considering
     that we have a dataframe (from csv) that contains the video_name and label
     columns, we can get the label based on a split of the video name.
@@ -47,10 +47,16 @@ def get_data_label(batch_files, class_labels):
     """
     labels = []
     for file in batch_files:
-        file = file.split('/')[-1].split('.')[0]
-        file = '_'.join(file.split('_')[0:2])
-        labels.append(
-            class_labels.loc[class_labels['video_name'] == file, ['label']].values[0][0])
+        if class_labels:
+            file = file.split('/')[-1].split('.')[0]
+            file = '_'.join(file.split('_')[0:2])
+            labels.append(
+                class_labels.loc[class_labels['video_name'] == file, ['label']].values[0][0])
+        else:
+            label_info = file.split('/')[-1].split('_')
+
+            sign = (int(label_info[1]) - 1) * 20 + int(label_info[2])
+            labels.append(sign)
 
     return labels
 
@@ -91,7 +97,10 @@ def convert_videos_to_tfrecord(source_path, destination_path,
         assert n_frames_per_video == "all"
 
     filenames = get_filenames(source_path, file_suffix, video_filenames)
-    class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
+
+    class_labels = None
+    if label_path:
+        class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
     filenames, checkpoint_df = recover_checkpoint(reset_checkpoint, filenames)
 
@@ -102,7 +111,8 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
     for i, batch in enumerate(filenames_split):
         print('Processing batch {}'.format(str(i)))
-        data, videos, triangle_figures = (None, None, None) # removing huge arrays from memory
+        # removing huge arrays from memory
+        data, videos, triangle_figures = (None, None, None)
 
         labels = get_data_label(batch, class_labels)
         data, videos, triangle_data, bbox_positions, moviment_data, facial_keypoints, triangle_figures, labels, error_videos = video2numpy.convert_videos_to_numpy(filenames=batch, width=width, height=height,
@@ -271,7 +281,7 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
-        '/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/val', 'results/test_v7',
-        n_videos_in_record=5000, width=512, height=512,
-        label_path='/home/alvaro/Documents/AUTSL_VIDEO_DATA/validation/ground_truth.csv',
+        '/home/alvaro/Downloads/CSL/color-gloss/color_train', 'results/train',
+        n_videos_in_record=180, width=1280, height=720,
+        label_path=None,
         reset_checkpoint=True)
