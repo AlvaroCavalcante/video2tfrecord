@@ -11,6 +11,10 @@ from utils import frame_processing_utils as fp_utils
 from utils.stats_generator import stats
 from utils import triangle_utils
 
+HAND_WIDTH, HAND_HEIGHT = 100, 100
+FACE_WIDTH, FACE_HEIGHT = 100, 100
+TRIANGLE_FIG_WIDTH, TRIANGLE_FIG_HEIGHT = 256, 256
+
 
 def fill_data_and_convert_to_np(data, n_frames, height, width, is_image=True):
     padding_amount = n_frames - len(data)
@@ -34,10 +38,6 @@ def get_flatten_bbox_array(bounding_boxes):
 
 
 def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, number_of_videos, n_channels=3):
-    hand_width, hand_height = 100, 100
-    face_width, face_height = 100, 100
-    triangle_fig_width, triangle_fig_height = 256, 256
-
     cap, frame_count = fp_utils.get_video_capture_and_frame_count(file_path)
 
     video = []
@@ -131,12 +131,12 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         stats.missing_triangle_features += 1
                         continue
 
-                    triangle_fig = fp_utils.resize_frame(triangle_fig_width, triangle_fig_height, n_channels,
+                    triangle_fig = fp_utils.resize_frame(TRIANGLE_FIG_WIDTH, TRIANGLE_FIG_HEIGHT, n_channels,
                                                          triangle_utils.get_triangle_figure(
                                                              bounding_boxes, frame.shape))
 
                     face = fp_utils.resize_frame(
-                        face_width, face_height, n_channels, face)
+                        FACE_WIDTH, FACE_HEIGHT, n_channels, face)
 
                     face_keypoints = keypoint_utils.get_facial_keypoints(
                         face, last_positions, last_frame)
@@ -185,9 +185,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                             faces.append(face)
                             hands_1.append(fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_1))
+                                HAND_WIDTH, HAND_HEIGHT, n_channels, hand_1))
                             hands_2.append(fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_2))
+                                HAND_WIDTH, HAND_HEIGHT, n_channels, hand_2))
                             frames_used.append(frame_number)
                             bbox_coords.append(flatten_bbox_coords)
                             facial_keypoints.append(face_keypoints)
@@ -219,9 +219,9 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                                 map(lambda key: triangle_features[key], triangle_features)))
                             faces.insert(insert_index, face)
                             hands_1.insert(insert_index, fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_1))
+                                HAND_WIDTH, HAND_HEIGHT, n_channels, hand_1))
                             hands_2.insert(insert_index, fp_utils.resize_frame(
-                                hand_width, hand_height, n_channels, hand_2))
+                                HAND_WIDTH, HAND_HEIGHT, n_channels, hand_2))
                             bbox_coords.insert(
                                 insert_index, flatten_bbox_coords)
                             triangle_figures.insert(insert_index, triangle_fig)
@@ -248,15 +248,15 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
         stats.too_high_padding.append(file_path)
 
     faces = fill_data_and_convert_to_np(
-        faces, n_frames_per_video, face_height, face_width)
+        faces, n_frames_per_video, FACE_HEIGHT, FACE_WIDTH)
     hands_1 = fill_data_and_convert_to_np(
-        hands_1, n_frames_per_video, hand_height, hand_width)
+        hands_1, n_frames_per_video, HAND_HEIGHT, HAND_WIDTH)
     hands_2 = fill_data_and_convert_to_np(
-        hands_2, n_frames_per_video, hand_height, hand_width)
+        hands_2, n_frames_per_video, HAND_HEIGHT, HAND_WIDTH)
     video = fill_data_and_convert_to_np(
         video, n_frames_per_video, height, width)
     triangle_figures = fill_data_and_convert_to_np(
-        triangle_figures, n_frames_per_video, triangle_fig_width, triangle_fig_height)
+        triangle_figures, n_frames_per_video, TRIANGLE_FIG_WIDTH, TRIANGLE_FIG_HEIGHT)
     triangle_features_list = fill_data_and_convert_to_np(
         triangle_features_list, n_frames_per_video, 1, 11, False)
     bbox_coords = fill_data_and_convert_to_np(
