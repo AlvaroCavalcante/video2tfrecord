@@ -5,7 +5,6 @@ class DatasetStatistics():
 
     def __init__(self, filename) -> None:
         self.skiped_frames = []
-        self.missing_facial_keypoints = 0
         self.missing_triangle_features = 0
         self.moviment_history_skip = 0
         self.too_high_padding = []
@@ -19,7 +18,6 @@ class DatasetStatistics():
     def save_stats_as_dataframe(self):
         val_object = {
             'skiped_frames': self.skiped_frames,
-            'missing_facial_keypoints': self.missing_facial_keypoints,
             'missing_triangle_features': self.missing_triangle_features,
             'moviment_history_skip': self.moviment_history_skip,
             'too_high_padding': self.too_high_padding,
