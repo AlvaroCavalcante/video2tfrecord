@@ -36,7 +36,7 @@ def get_chunks(l, n):
         yield l[i:i + n]
 
 
-def get_data_label(batch_files, class_labels = None):
+def get_data_label(batch_files, class_labels = pd.DataFrame()):
     """Gets the video labels based on the name of the video. Considering
     that we have a dataframe (from csv) that contains the video_name and label
     columns, we can get the label based on a split of the video name.
@@ -47,7 +47,7 @@ def get_data_label(batch_files, class_labels = None):
     """
     labels = []
     for file in batch_files:
-        if class_labels:
+        if len(class_labels):
             file = file.split('/')[-1].split('.')[0]
             file = '_'.join(file.split('_')[0:2])
             labels.append(
@@ -98,7 +98,7 @@ def convert_videos_to_tfrecord(source_path, destination_path,
 
     filenames = get_filenames(source_path, file_suffix, video_filenames)
 
-    class_labels = None
+    class_labels = pd.DataFrame()
     if label_path:
         class_labels = pd.read_csv(label_path, names=['video_name', 'label'])
 
@@ -282,6 +282,6 @@ def get_tfrecord_writer(destination_path, current_batch_number, total_batch_numb
 if __name__ == '__main__':
     convert_videos_to_tfrecord(
         '/home/alvaro/Downloads/CSL/color-gloss/color_train', 'results/train',
-        n_videos_in_record=180, width=512, height=512,
+        n_videos_in_record=500, width=512, height=512,
         label_path=None,
         reset_checkpoint=True)
