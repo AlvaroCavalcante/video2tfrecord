@@ -179,16 +179,21 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/results/train_v6/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/results/train/*.tfrecords')
 row = 4
 col = 4
 
 dataset = load_data_tfrecord(tf_record_path)
 
 
-def draw_triangle_on_img(centroids, img):
-    centroids_list = [(int(centroid[0].numpy()), int(centroid[1].numpy()))
-                      for centroid in centroids]
+def draw_triangle_on_img(bboxes, img):
+    centroids_list = []
+    bboxes = bboxes[0, :]
+
+    for i in range(0, 12, 4):
+        xmin, xmax, ymin, ymax = bboxes[i:i+4]
+        centroid = (int((xmin+xmax)/2), int((ymin+ymax)/2))
+        centroids_list.append(centroid)
 
     for centroid_comb in combinations(centroids_list, 2):
         centroid_1 = centroid_comb[0]
@@ -199,13 +204,13 @@ def draw_triangle_on_img(centroids, img):
     return img
 
 
-def plot_figure(row, col, img_seq, centroids=None, triangle=False, keypoints=[]):
+def plot_figure(row, col, img_seq, bboxes=None, triangle=False, keypoints=[]):
     for j in range(row*col):
         plt.subplot(row, col, j+1)
         plt.axis('off')
         if triangle:
             triangle_img = draw_triangle_on_img(
-                centroids[j], np.array(img_seq[j]))
+                bboxes[j], np.array(img_seq[j]))
             plt.imshow(triangle_img)
         else:
             img = np.array(img_seq[j])
@@ -230,9 +235,9 @@ data = []
 for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, keypoints, triangle_figures) in dataset:
     for i in range(video_name_list.shape[0]):
         if plot_images:
-            # plot_figure(row, col, video_imgs[i], bboxes[i], True)
-            plot_figure(row, col, triangle_figures[i])
-            plot_figure(row, col, hand_seq[i])
+            plot_figure(row, col, video_imgs[i], bboxes[i], True)
+            # plot_figure(row, col, triangle_figures[i])
+            # plot_figure(row, col, hand_seq[i])
             # plot_figure(row, col, face_seq[i], keypoints=keypoints[i])
         else:
             for j, video_name in enumerate(video_name_list[i]):
