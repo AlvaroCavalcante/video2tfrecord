@@ -70,7 +70,7 @@ def infer_images(image, label_map_path, heigth, width, file_name):
     detections['detection_classes'] = detections['detection_classes'].astype(
         np.int64)
 
-    image_np_with_detections, bouding_boxes = bbox_utils.filter_boxes_and_draw(
+    bouding_boxes = bbox_utils.filter_boxes_and_draw(
         image.copy(),
         label_map_path,
         detections['detection_scores'],
@@ -84,12 +84,12 @@ def infer_images(image, label_map_path, heigth, width, file_name):
     else:
         stats.missing_detections += 1
         # cv2.imwrite('./errors_db_autsl/'+file_name,
-                    # cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        # cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-    return image_np_with_detections, bouding_boxes
+    return bouding_boxes
 
 
-def check_last_position_use(bounding_boxes, last_positions):
+def check_last_position_use(bounding_boxes, last_positions, dominant_hand):
     """
     This method checks if there's any missing bounding box in the dict. If this
     is the case, then we try to use the last bounding box of the previous frame.
@@ -101,6 +101,10 @@ def check_last_position_use(bounding_boxes, last_positions):
         if bbox:
             last_positions_used.append('')
         else:
+            if class_name == dominant_hand:
+                last_positions_used.append('')
+                continue
+
             bbox = last_positions.get(class_name)
             if bbox:
                 bounding_boxes[class_name] = bbox
@@ -114,11 +118,18 @@ def check_last_position_use(bounding_boxes, last_positions):
 def detect_visual_cues_from_image(**kwargs):
     input_image = kwargs.get('image')
 
-    _, bounding_boxes = infer_images(input_image, kwargs.get(
+    bounding_boxes = infer_images(input_image, kwargs.get(
         'label_map_path'), kwargs.get('height'), kwargs.get('width'), kwargs.get('file_name'))
 
-    bounding_boxes, last_positions_used = check_last_position_use(bounding_boxes, kwargs.get('last_positions'))
-    bounding_boxes = bbox_utils.align_class_names(bounding_boxes, kwargs.get('last_positions'))
+    if not bounding_boxes.get('hand_1') or not bounding_boxes.get('hand_2'):
+        bounding_boxes = bbox_utils.determine_lost_hand(
+            bounding_boxes, kwargs.get('last_positions'))
+
+    bounding_boxes, last_positions_used = check_last_position_use(
+        bounding_boxes, kwargs.get('last_positions'), kwargs.get('dominant_hand'))
+
+    bounding_boxes = bbox_utils.align_class_names(
+        bounding_boxes, kwargs.get('last_positions'))
 
     face_segment, hand_1, hand_2 = get_image_segments(
         input_image, bounding_boxes, kwargs.get('last_frame'), last_positions_used)

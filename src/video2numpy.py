@@ -5,7 +5,6 @@ import bisect
 import numpy as np
 
 import hand_face_detection
-from utils import keypoint_utils
 from utils import bounding_box_utils as bbox_utils
 from utils import frame_processing_utils as fp_utils
 from utils.stats_generator import stats
@@ -47,6 +46,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
     triangle_figures = []
     triangle_features_list = []
     bbox_coords = []
+    dominant_hand = ''
 
     last_frame = []
     last_positions = {}
@@ -111,7 +111,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
 
                 else:
                     frame = fp_utils.resize_frame(
-                        512, 512, 3, frame[50:650, 320:1000])
+                        512, 512, 3, frame[80:720, 320:1000])
 
                     file_name = file_path.split(
                         '/')[-1].split('.')[0] + '_' + str(frame_number) + '.jpg'
@@ -123,7 +123,8 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                         width=width,
                         last_frame=last_frame,
                         last_positions=last_positions,
-                        file_name=file_name
+                        file_name=file_name,
+                        dominant_hand=dominant_hand
                     )
 
                     if not triangle_features:
@@ -219,7 +220,7 @@ def video_file_to_ndarray(i, file_path, n_frames_per_video, height, width, numbe
                             frames_used.insert(insert_index, frame_number)
                             position_features = temporary_position_features
 
-                    last_positions = get_last_positions(
+                    last_positions, dominant_hand = get_last_positions(
                         last_positions, position_features, bounding_boxes, last_positions_used)
                     last_frame = frame
 
@@ -263,12 +264,8 @@ def get_last_positions(last_positions, position_features, bounding_boxes, last_p
     last_position_used = any(
         map(lambda pos: pos == higher_moviment_hand, last_positions_used))
 
-    if last_position_used:
-        last_positions[higher_moviment_hand] = None
-    else:
-        last_positions = bounding_boxes
-
-    return last_positions
+    last_positions = bounding_boxes
+    return last_positions, higher_moviment_hand
 
 
 def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels=[]):
@@ -306,9 +303,9 @@ def convert_videos_to_numpy(filenames, n_frames_per_video, width, height, labels
     for i, file in enumerate(filenames):
         try:
             faces, hands_1, hands_2, triangle_features, centroids, video, hands_moviment, triangle_figs = video_file_to_ndarray(i=i, file_path=file,
-                                                                                                                                           n_frames_per_video=n_frames_per_video,
-                                                                                                                                           height=height, width=width,
-                                                                                                                                           number_of_videos=number_of_videos)
+                                                                                                                                n_frames_per_video=n_frames_per_video,
+                                                                                                                                height=height, width=width,
+                                                                                                                                number_of_videos=number_of_videos)
             data.append([faces, hands_1, hands_2])
             videos.append(video)
             triangle_data.append(triangle_features)
