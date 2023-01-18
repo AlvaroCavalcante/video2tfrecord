@@ -15,8 +15,54 @@ def auto_annotate_images(image, heigth, width, file_name, bouding_boxes):
                 cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 
+def determine_lost_hand(current_positions, last_positions):
+    try:
+        if not last_positions:
+            return current_positions
+
+        if not current_positions.get('hand_1') and not current_positions.get('hand_2'):
+            return current_positions
+
+        hand_bbox = current_positions.get('hand_1') if current_positions.get(
+            'hand_1') else current_positions.get('hand_2')
+
+        lost_hand_name = 'hand_1' if not current_positions.get(
+            'hand_1') else 'hand_2'
+
+        current_hand_centroid = (int((hand_bbox['xmin']+hand_bbox['xmax'])/2), int(
+            (hand_bbox['ymin']+hand_bbox['ymax'])/2))
+
+        last_centroids = [(int((last_positions[hand]['xmin']+last_positions[hand]['xmax'])/2), int(
+            (last_positions[hand]['ymin']+last_positions[hand]['ymax'])/2)) for hand in ['hand_1', 'hand_2']]
+
+        current_hand_centroid_last_hand1 = math.sqrt(
+            (current_hand_centroid[0]-last_centroids[0][0])**2+(current_hand_centroid[1]-last_centroids[0][1])**2)
+
+        current_hand_centroid_last_hand2 = math.sqrt(
+            (current_hand_centroid[0]-last_centroids[1][0])**2+(current_hand_centroid[1]-last_centroids[1][1])**2)
+
+        current_hand = ''
+        if current_hand_centroid_last_hand1 < current_hand_centroid_last_hand2:
+            current_hand = 'hand_1'
+        else:
+            current_hand = 'hand_2'
+
+        if current_hand == lost_hand_name:
+            lost_hand_name = 'hand_1' if lost_hand_name == 'hand_2' else 'hand_2'
+
+            current_positions[lost_hand_name] = None
+            current_positions[current_hand] = hand_bbox
+    except:
+        pass
+
+    return current_positions
+
+
 def align_class_names(current_positions, last_positions):
     if not last_positions:
+        return current_positions
+
+    if not current_positions.get('hand_1') or not current_positions.get('hand_2'):
         return current_positions
 
     try:
@@ -48,11 +94,11 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
     hand_counter = 2
     face_counter = 1
 
-    for index in np.where(scores > .55)[0]:
+    for index in np.where(scores > .48)[0]:
         class_name = category_index[classes[index]].get('name')
 
         if face_counter == 0 and hand_counter == 0:
-            return image_np_with_detections, output_bboxes
+            return output_bboxes
         elif class_name == 'face' and face_counter == 0:
             continue
         elif class_name == 'hand' and hand_counter == 0:
@@ -77,7 +123,7 @@ def filter_boxes_and_draw(image_np_with_detections, label_map_path, scores, clas
         else:
             hand_counter -= 1
 
-    return image_np_with_detections, output_bboxes
+    return output_bboxes
 
 
 def get_box_coordinates(boxes, heigth, width, index):
