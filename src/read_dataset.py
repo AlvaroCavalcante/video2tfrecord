@@ -60,7 +60,6 @@ def read_tfrecord(example_proto):
     triangle_data = []
     bouding_boxes = []
     video = []
-    keypoints = []
     triangle_figures = []
 
     apply_proba_dict = get_apply_proba_dict()
@@ -76,7 +75,6 @@ def read_tfrecord(example_proto):
         triangle_stream = 'triangle_data/' + str(image_count)
         bbox_stream = 'bbox/' + str(image_count)
         moviment_stream = 'moviment/' + str(image_count)
-        keypoint_stream = 'keypoint/' + str(image_count)
 
         feature_dict = {
             face_stream: tf.io.FixedLenFeature([], tf.string),
@@ -87,7 +85,6 @@ def read_tfrecord(example_proto):
             triangle_stream: tf.io.VarLenFeature(tf.float32),
             bbox_stream: tf.io.VarLenFeature(tf.float32),
             moviment_stream: tf.io.VarLenFeature(tf.float32),
-            keypoint_stream: tf.io.VarLenFeature(tf.float32),
             'video_name': tf.io.FixedLenFeature([], tf.string),
             'height': tf.io.FixedLenFeature([], tf.int64),
             'width': tf.io.FixedLenFeature([], tf.int64),
@@ -107,9 +104,6 @@ def read_tfrecord(example_proto):
         triangle_data.append(tf.concat([triangle, moviment], axis=0))
 
         bouding_boxes.append(tf.reshape(features[bbox_stream].values, (1, 12)))
-
-        keypoints.append(tf.squeeze(tf.reshape(
-            features[keypoint_stream].values, (1, 136))))
 
         triangle_stream_arr.append(triangle_stream)
 
@@ -138,7 +132,7 @@ def read_tfrecord(example_proto):
         video_name.append(features['video_name'])
         label = tf.cast(features['label'], tf.int32)
 
-    return hands, face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, keypoints,triangle_figures
+    return hands, face, triangle_data, bouding_boxes, video, label, video_name, triangle_stream_arr, triangle_figures
 
 
 def get_image(img, width, height):
@@ -157,7 +151,7 @@ def load_dataset(tf_record_path):
     return parsed_dataset
 
 
-def prepare_for_training(ds, shuffle_buffer_size=30):
+def prepare_for_training(ds, shuffle_buffer_size=100):
     # ds.cache() # I can remove this to don't use cache or use cocodata.tfcache
 
     ds = ds.repeat().shuffle(buffer_size=shuffle_buffer_size).batch(
@@ -166,8 +160,8 @@ def prepare_for_training(ds, shuffle_buffer_size=30):
     return ds
 
 
-def filter_func(hands, face, triangle_data, centroids, video, label, video_name, triangle_stream_arr):
-    return tf.math.greater(label, 206)
+def filter_func(hands, face, triangle_data, centroids, video, label, video_name, triangle_stream_arr, triangle_figures):
+    return tf.math.greater(label, 32) and tf.math.less(label, 37)
 
 
 def load_data_tfrecord(tfrecord_path):
@@ -179,7 +173,7 @@ def load_data_tfrecord(tfrecord_path):
 
 
 tf_record_path = tf.io.gfile.glob(
-    '/home/alvaro/Desktop/video2tfrecord/results/train/*.tfrecords')
+    '/home/alvaro/Desktop/video2tfrecord/results/test_v2/*.tfrecords')
 row = 4
 col = 4
 
@@ -232,8 +226,10 @@ data = []
 # pred_incorrect = pred_df[pred_df['correct_prediction'] == False]
 # pred_incorrect = list(pred_incorrect['video_names'].values)
 
-for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, keypoints, triangle_figures) in dataset:
+for (hand_seq, face_seq, triangle_data, bboxes, video_imgs, label, video_name_list, triangle_stream, triangle_figures) in dataset:
     for i in range(video_name_list.shape[0]):
+        # if not (label[i].numpy() > 32 and label[i].numpy() < 37):
+        #     continue
         if plot_images:
             plot_figure(row, col, video_imgs[i], bboxes[i], True)
             # plot_figure(row, col, triangle_figures[i])
